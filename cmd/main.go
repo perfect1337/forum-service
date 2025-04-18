@@ -23,7 +23,6 @@ func main() {
 
 	// Инициализация usecase
 	postUC := usecase.NewPostUseCase(repo)
-	authUC := usecase.NewAuthUseCase(repo, cfg)
 
 	// Инициализация HTTP сервера
 	router := gin.Default()
@@ -43,33 +42,27 @@ func main() {
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
-
 	// Инициализация обработчиков
-	postHandler := delivery.NewPostHandler(postUC)
-	authHandler := delivery.NewAuthHandler(authUC)
+	postHandler := delivery.NewPostHandler(*postUC) // Исправлено здесь
 
 	// Основной health check
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
 
-	// Группа аутентификации
-	auth := router.Group("/auth")
-	{
-		auth.POST("/register", authHandler.Register)
-		auth.POST("/login", authHandler.Login)
-		auth.POST("/refresh", authHandler.Refresh)
-	}
-
 	// Группа постов
 	posts := router.Group("/posts")
 	{
 		posts.GET("/", postHandler.GetAllPosts)
 		posts.GET("/:id", postHandler.GetPostByID)
-		posts.Use(delivery.AuthMiddleware(cfg))
-		posts.POST("/", postHandler.CreatePost)
-	}
 
+		// Защищенные роуты
+		protected := posts.Group("")
+		protected.Use(delivery.AuthMiddleware(cfg))
+		{
+			protected.POST("/", postHandler.CreatePost)
+		}
+	}
 	// Запуск сервера (должен быть последним)
 	log.Printf("Server is running on port %s", cfg.Server.Port)
 	if err := router.Run(":" + cfg.Server.Port); err != nil {
