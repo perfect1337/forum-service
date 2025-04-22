@@ -67,3 +67,10 @@ func (p *Postgres) GetPostByID(ctx context.Context, id int) (*entity.Post, error
 	}
 	return &post, nil
 }
+
+// internal/repository/postgres.go
+func (p *Postgres) DeletePost(ctx context.Context, id int) error {
+	query := `DELETE FROM posts WHERE id = $1`
+	_, err := p.db.ExecContext(ctx, query, id)
+	return err
+}

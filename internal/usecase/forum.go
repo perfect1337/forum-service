@@ -18,6 +18,10 @@ type AuthUseCase struct {
 	SecretKey []byte
 }
 
+// internal/usecase/post.go
+func (uc *PostUseCase) DeletePost(ctx context.Context, postID int) error {
+	return uc.repo.DeletePost(ctx, postID)
+}
 func (p *PostUseCase) CreatePost(ctx context.Context, post *entity.Post) error {
 	return p.repo.CreatePost(ctx, post)
 }

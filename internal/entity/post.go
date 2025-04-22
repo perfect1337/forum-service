@@ -2,12 +2,14 @@ package entity
 
 import "time"
 
+// internal/entity/post.go
 type Post struct {
 	ID        int       `json:"id"`
 	Title     string    `json:"title"`
 	Content   string    `json:"content"`
 	Author    string    `json:"author"`
 	CreatedAt time.Time `json:"created_at"`
+	Comments  []Comment `json:"comments,omitempty"`
 }
 type User struct {
 	ID           int    `json:"id"`

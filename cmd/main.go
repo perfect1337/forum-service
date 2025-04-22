@@ -15,55 +15,76 @@ import (
 func main() {
 	cfg := config.Load()
 
+	router := gin.Default()
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
+	router.OPTIONS("/*any", func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "http://localhost:3000")
+		c.Header("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type")
+		c.Status(200)
+	})
+	router.Use(func(c *gin.Context) {
+		log.Printf("Incoming request: %s %s", c.Request.Method, c.Request.URL)
+		log.Printf("Headers: %v", c.Request.Header)
+		c.Next()
+	})
+	// Middleware и настройки CORS (оставить как было)
+	// ...
 	// Инициализация репозитория
 	repo, err := repository.NewPostgres(cfg)
 	if err != nil {
 		log.Fatalf("failed to initialize repository: %v", err)
 	}
 
-	// Инициализация usecase
+	// Инициализация usecases
 	postUC := usecase.NewPostUseCase(repo)
+	commentUC := usecase.NewCommentUseCase(repo)
+	authUC := usecase.NewAuthUseCase(repo, cfg)
 
-	// Инициализация HTTP сервера
-	router := gin.Default()
-
-	// Логирование запросов (должно быть первым middleware)
-	router.Use(func(c *gin.Context) {
-		log.Printf("Request: %s %s", c.Request.Method, c.Request.URL.Path)
-		c.Next()
-	})
-
-	// Настройка CORS (должно быть перед обработчиками маршрутов)
-	router.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Accept", "Authorization"},
-		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: true,
-		MaxAge:           12 * time.Hour,
-	}))
 	// Инициализация обработчиков
-	postHandler := delivery.NewPostHandler(*postUC) // Исправлено здесь
-
-	// Основной health check
-	router.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "ok"})
-	})
-
-	// Группа постов
-	posts := router.Group("/posts")
+	postHandler := delivery.NewPostHandler(*postUC, *commentUC)
+	commentHandler := delivery.NewCommentHandler(*commentUC)
+	authHandler := delivery.NewAuthHandler(*authUC)
+	// Группа для аутентификации
+	authGroup := router.Group("/auth")
 	{
-		posts.GET("/", postHandler.GetAllPosts)
-		posts.GET("/:id", postHandler.GetPostByID)
+		authGroup.GET("/validate", authHandler.ValidateToken)
+	}
 
-		// Защищенные роуты
-		protected := posts.Group("")
+	// Группа для постов
+	postsGroup := router.Group("/posts")
+	{
+		postsGroup.GET("", postHandler.GetAllPosts)
+		postsGroup.GET("/:id", postHandler.GetPostByID)
+
+		protected := postsGroup.Group("")
 		protected.Use(delivery.AuthMiddleware(cfg))
 		{
-			protected.POST("/", postHandler.CreatePost)
+			protected.POST("", postHandler.CreatePost)
+			protected.DELETE("/:id", postHandler.DeletePost)
+		}
+
+		// Группа для комментариев - используем :id вместо :post_id
+		commentsGroup := postsGroup.Group("/:id/comments")
+		{
+			commentsGroup.GET("", commentHandler.GetComments)
+
+			protectedComments := commentsGroup.Group("")
+			protectedComments.Use(delivery.AuthMiddleware(cfg))
+			{
+				protectedComments.POST("", commentHandler.CreateComment)
+				protectedComments.DELETE("/:comment_id", commentHandler.DeleteComment)
+			}
 		}
 	}
-	// Запуск сервера (должен быть последним)
+
 	log.Printf("Server is running on port %s", cfg.Server.Port)
 	if err := router.Run(":" + cfg.Server.Port); err != nil {
 		log.Fatalf("failed to run server: %v", err)

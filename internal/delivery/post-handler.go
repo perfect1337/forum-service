@@ -1,6 +1,7 @@
 package delivery
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -10,15 +11,18 @@ import (
 )
 
 type PostHandler struct {
-	postUC usecase.PostUseCase
+	postUC    usecase.PostUseCase
+	commentUC usecase.CommentUseCase
 }
 
-func NewPostHandler(postUC usecase.PostUseCase) *PostHandler {
-	return &PostHandler{postUC: postUC}
+func NewPostHandler(postUC usecase.PostUseCase, commentUC usecase.CommentUseCase) *PostHandler {
+	return &PostHandler{
+		postUC:    postUC,
+		commentUC: commentUC,
+	}
 }
 
 func (h *PostHandler) CreatePost(c *gin.Context) {
-	// Get user ID from context (set by AuthMiddleware)
 	userID, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
@@ -31,8 +35,7 @@ func (h *PostHandler) CreatePost(c *gin.Context) {
 		return
 	}
 
-	// Set the author ID from the authenticated user
-	post.Author = userID.(string)
+	post.Author = fmt.Sprintf("%v", userID)
 
 	if err := h.postUC.CreatePost(c.Request.Context(), &post); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -55,15 +58,71 @@ func (h *PostHandler) GetPostByID(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, post)
+	comments, err := h.commentUC.GetCommentsByPostID(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	response := gin.H{
+		"post":     post,
+		"comments": comments,
+	}
+
+	c.JSON(http.StatusOK, response)
 }
 
 func (h *PostHandler) GetAllPosts(c *gin.Context) {
+	includeComments := c.Query("includeComments") == "true"
+
 	posts, err := h.postUC.GetAllPosts(c.Request.Context())
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
+	if includeComments {
+		for i := range posts {
+			comments, err := h.commentUC.GetCommentsByPostID(c.Request.Context(), posts[i].ID)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+			posts[i].Comments = comments
+		}
+	}
+
 	c.JSON(http.StatusOK, posts)
+}
+
+func (h *PostHandler) DeletePost(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+		return
+	}
+
+	postID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid post ID"})
+		return
+	}
+
+	post, err := h.postUC.GetPostByID(c.Request.Context(), postID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "post not found"})
+		return
+	}
+
+	if fmt.Sprintf("%v", post.Author) != fmt.Sprintf("%v", userID) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "you can only delete your own posts"})
+		return
+	}
+
+	if err := h.postUC.DeletePost(c.Request.Context(), postID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "post deleted successfully"})
 }

@@ -29,10 +29,12 @@ func extractToken(c *gin.Context) string {
 	return tokenString
 }
 
-// В forum-service/delivery/auth.go
-// В forum-service/delivery/auth.go
 func AuthMiddleware(cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if c.Request.Method == "OPTIONS" {
+			c.Next()
+			return
+		}
 		tokenString := extractToken(c)
 		if tokenString == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authorization token required"})
@@ -57,6 +59,7 @@ func AuthMiddleware(cfg *config.Config) gin.HandlerFunc {
 				return
 			}
 			c.Set("user_id", claims["user_id"])
+			c.Set("username", claims["username"])
 			c.Next()
 		} else {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token claims"})
