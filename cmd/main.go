@@ -24,19 +24,20 @@ func main() {
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
+
 	router.OPTIONS("/*any", func(c *gin.Context) {
 		c.Header("Access-Control-Allow-Origin", "http://localhost:3000")
 		c.Header("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
 		c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type")
 		c.Status(200)
 	})
+
 	router.Use(func(c *gin.Context) {
 		log.Printf("Incoming request: %s %s", c.Request.Method, c.Request.URL)
 		log.Printf("Headers: %v", c.Request.Header)
 		c.Next()
 	})
-	// Middleware и настройки CORS (оставить как было)
-	// ...
+
 	// Инициализация репозитория
 	repo, err := repository.NewPostgres(cfg)
 	if err != nil {
@@ -47,17 +48,25 @@ func main() {
 	postUC := usecase.NewPostUseCase(repo)
 	commentUC := usecase.NewCommentUseCase(repo)
 	authUC := usecase.NewAuthUseCase(repo, cfg)
-
+	chatUC := usecase.NewChatUseCase(repo)
+	chatHandler := delivery.NewChatHandler(*chatUC)
 	// Инициализация обработчиков
 	postHandler := delivery.NewPostHandler(*postUC, *commentUC)
 	commentHandler := delivery.NewCommentHandler(*commentUC)
 	authHandler := delivery.NewAuthHandler(*authUC)
+
 	// Группа для аутентификации
 	authGroup := router.Group("/auth")
 	{
 		authGroup.GET("/validate", authHandler.ValidateToken)
 	}
+	//chat group
 
+	chatGroup := router.Group("/chat")
+	{
+		chatGroup.GET("/messages", chatHandler.GetMessages) // Public access
+		chatGroup.POST("/messages", delivery.AuthMiddleware(cfg), chatHandler.SendMessage)
+	}
 	// Группа для постов
 	postsGroup := router.Group("/posts")
 	{
@@ -68,10 +77,10 @@ func main() {
 		protected.Use(delivery.AuthMiddleware(cfg))
 		{
 			protected.POST("", postHandler.CreatePost)
-			protected.DELETE("/:id", postHandler.DeletePost)
+
 		}
 
-		// Группа для комментариев - используем :id вместо :post_id
+		// Группа для комментариев
 		commentsGroup := postsGroup.Group("/:id/comments")
 		{
 			commentsGroup.GET("", commentHandler.GetComments)

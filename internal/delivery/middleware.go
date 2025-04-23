@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
@@ -31,16 +30,33 @@ func extractToken(c *gin.Context) string {
 
 func AuthMiddleware(cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// Skip OPTIONS requests
 		if c.Request.Method == "OPTIONS" {
 			c.Next()
 			return
 		}
-		tokenString := extractToken(c)
-		if tokenString == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authorization token required"})
+
+		// Get the Authorization header
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"error": "Authorization header required",
+				"code":  "missing_auth_header",
+			})
 			return
 		}
 
+		// Extract the token (handle Bearer prefix)
+		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+		if tokenString == authHeader {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"error": "Bearer token required",
+				"code":  "invalid_token_format",
+			})
+			return
+		}
+
+		// Parse the token
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
@@ -49,20 +65,44 @@ func AuthMiddleware(cfg *config.Config) gin.HandlerFunc {
 		})
 
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"error":   "Invalid token",
+				"details": err.Error(),
+				"code":    "invalid_token",
+			})
 			return
 		}
 
+		// Validate claims
 		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-			if exp, ok := claims["exp"].(float64); ok && time.Now().Unix() > int64(exp) {
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "token expired"})
+			// Handle user_id (it might be float64 or int)
+			userID, ok := claims["user_id"].(float64)
+			if !ok {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+					"error": "Invalid user_id in token",
+					"code":  "invalid_user_id",
+				})
 				return
 			}
-			c.Set("user_id", claims["user_id"])
-			c.Set("username", claims["username"])
+
+			username, ok := claims["username"].(string)
+			if !ok {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+					"error": "Invalid username in token",
+					"code":  "invalid_username",
+				})
+				return
+			}
+
+			// Set values in context
+			c.Set("user_id", int(userID))
+			c.Set("username", username)
 			c.Next()
 		} else {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token claims"})
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"error": "Invalid token claims",
+				"code":  "invalid_claims",
+			})
 		}
 	}
 }
