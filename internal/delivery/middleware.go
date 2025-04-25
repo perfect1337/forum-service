@@ -77,6 +77,8 @@ func AuthMiddleware(cfg *config.Config) gin.HandlerFunc {
 		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
 			// Handle user_id (it might be float64 or int)
 			userID, ok := claims["user_id"].(float64)
+			role, _ := claims["role"].(string)
+			c.Set("user_role", role)
 			if !ok {
 				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 					"error": "Invalid user_id in token",

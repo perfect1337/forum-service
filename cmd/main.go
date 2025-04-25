@@ -77,7 +77,7 @@ func main() {
 		protected.Use(delivery.AuthMiddleware(cfg))
 		{
 			protected.POST("", postHandler.CreatePost)
-
+			protected.DELETE("/:id", postHandler.DeletePost) // Переносим DELETE сюда
 		}
 
 		// Группа для комментариев

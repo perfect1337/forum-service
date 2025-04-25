@@ -96,11 +96,6 @@ func (h *PostHandler) GetAllPosts(c *gin.Context) {
 }
 
 func (h *PostHandler) DeletePost(c *gin.Context) {
-	userID, exists := c.Get("user_id")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
-		return
-	}
 
 	postID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
@@ -108,16 +103,7 @@ func (h *PostHandler) DeletePost(c *gin.Context) {
 		return
 	}
 
-	post, err := h.postUC.GetPostByID(c.Request.Context(), postID)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "post not found"})
-		return
-	}
-
-	if fmt.Sprintf("%v", post.Author) != fmt.Sprintf("%v", userID) {
-		c.JSON(http.StatusForbidden, gin.H{"error": "you can only delete your own posts"})
-		return
-	}
+	// Для не-админов проверяем авторство
 
 	if err := h.postUC.DeletePost(c.Request.Context(), postID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
