@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	_ "github.com/lib/pq"
 	"github.com/perfect1337/forum-service/internal/config"
@@ -72,5 +73,12 @@ func (p *Postgres) GetPostByID(ctx context.Context, id int) (*entity.Post, error
 func (p *Postgres) DeletePost(ctx context.Context, id int) error {
 	query := `DELETE FROM posts WHERE id = $1`
 	_, err := p.db.ExecContext(ctx, query, id)
+	return err
+}
+
+// internal/repository/postgres.go
+func (p *Postgres) DeleteOldChatMessages(ctx context.Context, olderThan time.Duration) error {
+	query := `DELETE FROM chat_messages WHERE created_at < NOW() - $1::interval`
+	_, err := p.db.ExecContext(ctx, query, olderThan.String())
 	return err
 }

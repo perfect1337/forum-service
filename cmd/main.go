@@ -48,8 +48,8 @@ func main() {
 	postUC := usecase.NewPostUseCase(repo)
 	commentUC := usecase.NewCommentUseCase(repo)
 	authUC := usecase.NewAuthUseCase(repo, cfg)
-	chatUC := usecase.NewChatUseCase(repo)
-	chatHandler := delivery.NewChatHandler(*chatUC)
+	chatUC := usecase.NewChatUseCase(*repo, authUC)
+	chatHandler := delivery.NewChatHandler(chatUC)
 	// Инициализация обработчиков
 	postHandler := delivery.NewPostHandler(*postUC, *commentUC)
 	commentHandler := delivery.NewCommentHandler(*commentUC)
@@ -64,8 +64,8 @@ func main() {
 
 	chatGroup := router.Group("/chat")
 	{
-		chatGroup.GET("/messages", chatHandler.GetMessages) // Public access
-		chatGroup.POST("/messages", delivery.AuthMiddleware(cfg), chatHandler.SendMessage)
+		chatGroup.GET("/messages", chatHandler.GetMessages)
+		chatGroup.GET("/ws", chatHandler.HandleWebSocket)
 	}
 	// Группа для постов
 	postsGroup := router.Group("/posts")

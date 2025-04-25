@@ -4,18 +4,33 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 	"github.com/perfect1337/forum-service/internal/entity"
 	"github.com/perfect1337/forum-service/internal/usecase"
 )
 
-type ChatHandler struct {
-	chatUC usecase.ChatUseCase
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
 }
 
-func NewChatHandler(chatUC usecase.ChatUseCase) *ChatHandler {
+type ChatHandler struct {
+	chatUC *usecase.ChatUseCase
+}
+
+func NewChatHandler(chatUC *usecase.ChatUseCase) *ChatHandler {
 	return &ChatHandler{chatUC: chatUC}
 }
-
+func (h *ChatHandler) HandleWebSocket(c *gin.Context) {
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		return
+	}
+	h.chatUC.HandleWebSocket(conn)
+}
 func (h *ChatHandler) SendMessage(c *gin.Context) {
 	// Get user info from context with proper type assertions
 	userID, exists := c.Get("user_id")
@@ -74,11 +89,21 @@ func (h *ChatHandler) SendMessage(c *gin.Context) {
 		"created_at": message.CreatedAt,
 	})
 }
+
+// internal/delivery/chat.go
 func (h *ChatHandler) GetMessages(c *gin.Context) {
-	messages, err := h.chatUC.GetMessages(c.Request.Context(), 50)
+	// Добавим параметр для очистки старых сообщений
+	_, err := h.chatUC.GetMessages(c.Request.Context(), 100)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	messages, err := h.chatUC.GetMessages(c.Request.Context(), 100)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
 	c.JSON(http.StatusOK, messages)
 }
