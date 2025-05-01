@@ -6,12 +6,12 @@ require (
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/gin-contrib/cors v1.7.5
 	github.com/gin-gonic/gin v1.10.0
-	golang.org/x/crypto v0.36.0
+	github.com/gorilla/websocket v1.5.3
 )
 
 require (
-	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
+	golang.org/x/crypto v0.36.0 // indirect
 )
 
 require (

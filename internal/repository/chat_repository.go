@@ -8,6 +8,19 @@ import (
 	"github.com/perfect1337/forum-service/internal/entity"
 )
 
+type ChatRepository interface {
+	CreateChatMessage(ctx context.Context, message *entity.ChatMessage) error
+	GetChatMessages(ctx context.Context, limit int) ([]entity.ChatMessage, error)
+	SaveChatMessage(ctx context.Context, message *entity.ChatMessage) error
+	DeleteOldChatMessages(ctx context.Context, olderThan time.Duration) error
+}
+
+func (p *Postgres) DeleteOldChatMessages(ctx context.Context, olderThan time.Duration) error {
+	query := `DELETE FROM chat_messages WHERE created_at < NOW() - $1::interval`
+	_, err := p.db.ExecContext(ctx, query, olderThan.String())
+	return err
+}
+
 func (p *Postgres) CreateChatMessage(ctx context.Context, message *entity.ChatMessage) error {
 	query := `INSERT INTO chat_messages (user_id, author, text, created_at) 
               VALUES ($1, $2, $3, $4) RETURNING id`

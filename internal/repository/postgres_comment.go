@@ -8,6 +8,12 @@ import (
 	"github.com/perfect1337/forum-service/internal/entity"
 )
 
+type CommentRepository interface {
+	CreateComment(ctx context.Context, comment *entity.Comment) error
+	GetCommentsByPostID(ctx context.Context, postID int) ([]entity.Comment, error)
+	DeleteComment(ctx context.Context, commentID int, userID string) error
+}
+
 func (r *Postgres) CreateComment(ctx context.Context, comment *entity.Comment) error {
 	query := `
         INSERT INTO comments (post_id, author_id, author, text, created_at)
