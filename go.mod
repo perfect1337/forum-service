@@ -9,7 +9,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	    github.com/perfect1337/auth-service v0.0.0
 )
-
+replace github.com/perfect1337/auth-service => ../auth-service
 require (
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
 	golang.org/x/crypto v0.36.0 // indirect

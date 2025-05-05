@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package post;
+
+option go_package = "github.com/perfect1337/forum-service/internal/proto/post";
+
+import "user.proto"; // Импортируем user.proto
+
+message PostRequest {
+    int32 post_id = 1;
+}
+
+message PostResponse {
+    int32 id = 1;
+    string title = 2;
+    string content = 3;
+    string author_name = 4;  // Будем заполнять через gRPC вызов
+}
+
+service PostService {
+    rpc GetPostWithAuthor(PostRequest) returns (PostResponse);
+}

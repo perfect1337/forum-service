@@ -3,7 +3,7 @@ package grpc
 import (
 	"context"
 
-	authProto "github.com/perfect1337/auth-service/internal/proto"
+	userProto "github.com/perfect1337/auth-service/internal/proto"
 	postProto "github.com/perfect1337/forum-service/internal/proto/post"
 	"github.com/perfect1337/forum-service/internal/usecase"
 	"google.golang.org/grpc"
@@ -14,13 +14,13 @@ import (
 type PostServer struct {
 	postProto.UnimplementedPostServiceServer
 	postUsecase usecase.PostUseCase
-	authClient  authProto.UserServiceClient
+	userClient  userProto.UserServiceClient
 }
 
-func NewPostServer(postUC usecase.PostUseCase, authConn *grpc.ClientConn) *PostServer {
+func NewPostServer(postUC usecase.PostUseCase, userConn *grpc.ClientConn) *PostServer {
 	return &PostServer{
 		postUsecase: postUC,
-		authClient:  authProto.NewUserServiceClient(authConn),
+		userClient:  userProto.NewUserServiceClient(userConn),
 	}
 }
 
@@ -31,8 +31,8 @@ func (s *PostServer) GetPostWithAuthor(ctx context.Context, req *postProto.PostR
 		return nil, status.Errorf(codes.NotFound, "post not found: %v", err)
 	}
 
-	// 2. Получаем имя пользователя через GetUsername
-	usernameResp, err := s.authClient.GetUsername(ctx, &authProto.UserRequest{
+	// 2. Делаем gRPC вызов к auth-service для получения имени автора
+	usernameResp, err := s.userClient.GetUsername(ctx, &userProto.UserRequest{
 		UserId: int32(post.AuthorID),
 	})
 	if err != nil {
@@ -44,6 +44,6 @@ func (s *PostServer) GetPostWithAuthor(ctx context.Context, req *postProto.PostR
 		Id:         int32(post.ID),
 		Title:      post.Title,
 		Content:    post.Content,
-		AuthorName: usernameResp.GetUsername(), // Используем полученное имя
+		AuthorName: usernameResp.GetUsername(),
 	}, nil
 }
