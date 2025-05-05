@@ -12,6 +12,7 @@ type Config struct {
 		Password string
 		DBName   string
 		SSLMode  string
+		GRPCPort string `mapstructure:"GRPC_PORT"`
 	}
 	Server struct {
 		Port string
