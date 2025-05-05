@@ -12,7 +12,7 @@ type Config struct {
 		Password string
 		DBName   string
 		SSLMode  string
-		GRPCPort string `mapstructure:"GRPC_PORT"`
+		GRPCPort string
 	}
 	Server struct {
 		Port string
@@ -37,13 +37,14 @@ func Load() *Config {
 	cfg.Postgres.Password = "postgres"
 	cfg.Postgres.DBName = "PG"
 	cfg.Postgres.SSLMode = "disable"
+	cfg.Postgres.GRPCPort = "50052" // Добавлен GRPC порт
 
 	// Server
 	cfg.Server.Port = "8081"
 
 	// Auth
 	cfg.Auth.AccessTokenDuration = 15 * time.Minute
-	cfg.Auth.RefreshTokenDuration = 360 * time.Hour // 15 дней
+	cfg.Auth.RefreshTokenDuration = 360 * time.Hour
 	cfg.Auth.SecretKey = "your-secret-key"
 	cfg.Migrations.Enable = false
 	return cfg

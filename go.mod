@@ -7,12 +7,16 @@ require (
 	github.com/gin-contrib/cors v1.7.5
 	github.com/gin-gonic/gin v1.10.0
 	github.com/gorilla/websocket v1.5.3
+	    github.com/perfect1337/auth-service v0.0.0
 )
 
 require (
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
 	golang.org/x/crypto v0.36.0 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250218202821-56aae31c358a // indirect
+	google.golang.org/grpc v1.72.0 // indirect
 )
+
 
 require (
 	github.com/bytedance/sonic v1.13.2 // indirect

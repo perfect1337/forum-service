@@ -3,32 +3,47 @@ package grpc
 import (
 	"context"
 
-	"github.com/perfect1337/forum-service/internal/proto/post"
-	"github.com/perfect1337/forum-service/internal/proto/user"
+	authProto "github.com/perfect1337/auth-service/internal/proto"
+	postProto "github.com/perfect1337/forum-service/internal/proto/post"
 	"github.com/perfect1337/forum-service/internal/usecase"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type PostServer struct {
-	post.UnimplementedPostServiceServer
-	postUsecase usecase.Post
-	userClient  user.UserServiceClient
+	postProto.UnimplementedPostServiceServer
+	postUsecase usecase.PostUseCase
+	authClient  authProto.UserServiceClient
 }
 
-func NewPostServer(p usecase.Post, conn *grpc.ClientConn) *PostServer {
+func NewPostServer(postUC usecase.PostUseCase, authConn *grpc.ClientConn) *PostServer {
 	return &PostServer{
-		postUsecase: p,
-		userClient:  user.NewUserServiceClient(conn),
+		postUsecase: postUC,
+		authClient:  authProto.NewUserServiceClient(authConn),
 	}
 }
 
-func (s *PostServer) GetPostAuthor(ctx context.Context, req *post.PostRequest) (*user.UserResponse, error) {
+func (s *PostServer) GetPostWithAuthor(ctx context.Context, req *postProto.PostRequest) (*postProto.PostResponse, error) {
 	// 1. Получаем пост из репозитория
-	p, err := s.postUsecase.GetByID(ctx, int(req.PostId))
+	post, err := s.postUsecase.GetByID(ctx, int(req.GetPostId()))
 	if err != nil {
-		return nil, err
+		return nil, status.Errorf(codes.NotFound, "post not found: %v", err)
 	}
 
-	// 2. Запрашиваем имя пользователя через gRPC
-	return s.userClient.GetUsername(ctx, &user.UserRequest{UserId: int32(p.AuthorID)})
+	// 2. Получаем имя пользователя через GetUsername
+	usernameResp, err := s.authClient.GetUsername(ctx, &authProto.UserRequest{
+		UserId: int32(post.AuthorID),
+	})
+	if err != nil {
+		return nil, status.Errorf(codes.Internal, "failed to get username: %v", err)
+	}
+
+	// 3. Формируем ответ
+	return &postProto.PostResponse{
+		Id:         int32(post.ID),
+		Title:      post.Title,
+		Content:    post.Content,
+		AuthorName: usernameResp.GetUsername(), // Используем полученное имя
+	}, nil
 }
