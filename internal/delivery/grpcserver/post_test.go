@@ -55,7 +55,6 @@ func TestPostServer_GetPostWithAuthor(t *testing.T) {
 		mockUserClient.AssertExpectations(t)
 	})
 
-	// Остальные тесты аналогично с исправлением обращения к полям ответа
 	t.Run("PostNotFound", func(t *testing.T) {
 		postID := 999
 		mockPostUC.On("GetPostByID", ctx, postID).Return((*entity.Post)(nil), errors.New("not found"))

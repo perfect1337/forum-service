@@ -194,7 +194,7 @@ func (c *WebSocketClient) writePump() {
 
 func (uc *ChatUseCase) SendMessage(ctx context.Context, message *entity.ChatMessage) error {
 	if err := uc.repo.SaveChatMessage(ctx, message); err != nil {
-		return err
+		return err // Возвращаем ошибку из репозитория
 	}
 	uc.hub.broadcast <- *message
 	return nil

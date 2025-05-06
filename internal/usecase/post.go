@@ -9,7 +9,6 @@ import (
 	"github.com/perfect1337/forum-service/internal/config"
 	"github.com/perfect1337/forum-service/internal/entity"
 	"github.com/perfect1337/forum-service/internal/repository"
-	"github.com/stretchr/testify/mock"
 )
 
 // Интерфейс UseCase
@@ -29,9 +28,6 @@ type PostRepository interface {
 
 type UserRepository interface {
 	GetUserByID(ctx context.Context, id int) (*entity.User, error)
-}
-type MockPostUseCase struct {
-	mock.Mock
 }
 
 // Реализация интерфейса
@@ -91,6 +87,20 @@ func (s *PostService) DeletePost(ctx context.Context, postID, userID int) error 
 }
 
 func (s *PostService) CreatePost(ctx context.Context, post *entity.Post) error {
+	if post == nil {
+		return errors.New("post cannot be nil")
+	}
+	if post.Title == "" {
+		return errors.New("post title cannot be empty")
+	}
+	if post.Content == "" {
+		return errors.New("post content cannot be empty")
+	}
+	if post.UserID == 0 {
+		return errors.New("user ID cannot be empty")
+	}
+
+	// Возвращаем ошибку напрямую из репозитория
 	return s.postRepo.CreatePost(ctx, post)
 }
 

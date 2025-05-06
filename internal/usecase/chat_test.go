@@ -3,6 +3,7 @@ package usecase_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -14,11 +15,11 @@ import (
 )
 
 func TestChatUseCase_SendMessage(t *testing.T) {
-	mockChatRepo := new(mocks.MockChatRepository)
-	mockAuthUC := new(mocks.MockAuthUseCase)
-	uc := usecase.NewChatUseCase(mockChatRepo, mockAuthUC)
-
 	t.Run("Success", func(t *testing.T) {
+		mockChatRepo := new(mocks.MockChatRepository)
+		mockAuthUC := new(mocks.MockAuthUseCase)
+		uc := usecase.NewChatUseCase(mockChatRepo, mockAuthUC)
+
 		msg := &entity.ChatMessage{Text: "test"}
 		mockChatRepo.On("SaveChatMessage", mock.Anything, msg).Return(nil)
 
@@ -27,12 +28,18 @@ func TestChatUseCase_SendMessage(t *testing.T) {
 		mockChatRepo.AssertExpectations(t)
 	})
 
-	t.Run("Error", func(t *testing.T) {
+	t.Run("RepositoryError", func(t *testing.T) {
+		mockChatRepo := new(mocks.MockChatRepository)
+		mockAuthUC := new(mocks.MockAuthUseCase)
+		uc := usecase.NewChatUseCase(mockChatRepo, mockAuthUC)
+
 		msg := &entity.ChatMessage{Text: "test"}
-		mockChatRepo.On("SaveChatMessage", mock.Anything, msg).Return(assert.AnError)
+		repoErr := errors.New("repository error")
+		mockChatRepo.On("SaveChatMessage", mock.Anything, msg).Return(repoErr)
 
 		err := uc.SendMessage(context.Background(), msg)
 		assert.Error(t, err)
+		assert.Equal(t, repoErr, err) // Проверяем, что возвращается именно ошибка из репозитория
 		mockChatRepo.AssertExpectations(t)
 	})
 }
