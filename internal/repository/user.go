@@ -4,11 +4,15 @@ import (
 	"context"
 
 	"github.com/perfect1337/forum-service/internal/entity"
+	"github.com/stretchr/testify/mock"
 )
 
 type UserRepository interface {
 	GetUserByID(ctx context.Context, id int) (*entity.User, error)
 	GetUsersByIDs(ctx context.Context, ids []int) (map[int]*entity.User, error)
+}
+type MockUserRepository struct {
+	mock.Mock
 }
 
 func (p *Postgres) GetUserByID(ctx context.Context, id int) (*entity.User, error) {

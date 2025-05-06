@@ -4,17 +4,20 @@ import (
 	"time"
 )
 
+// Добавляем явное объявление структуры
+type PostgresConfig struct {
+	Host     string
+	Port     string
+	User     string
+	Password string
+	DBName   string
+	SSLMode  string
+	GRPCPort string
+}
+
 type Config struct {
-	Postgres struct {
-		Host     string
-		Port     string
-		User     string
-		Password string
-		DBName   string
-		SSLMode  string
-		GRPCPort string
-	}
-	Server struct {
+	Postgres PostgresConfig // Теперь используем явный тип
+	Server   struct {
 		Port string
 	}
 	Auth struct {
@@ -37,7 +40,7 @@ func Load() *Config {
 	cfg.Postgres.Password = "postgres"
 	cfg.Postgres.DBName = "PG"
 	cfg.Postgres.SSLMode = "disable"
-	cfg.Postgres.GRPCPort = "50052" // Добавлен GRPC порт
+	cfg.Postgres.GRPCPort = "50052"
 
 	// Server
 	cfg.Server.Port = "8081"

@@ -28,6 +28,7 @@ type UserRequest struct {
 	sizeCache     protoimpl.SizeCache
 }
 
+
 func (x *UserRequest) Reset() {
 	*x = UserRequest{}
 	mi := &file_user_proto_msgTypes[0]

@@ -4,14 +4,18 @@ import (
 	"context"
 
 	"github.com/perfect1337/forum-service/internal/entity"
-	"github.com/perfect1337/forum-service/internal/repository"
 )
 
 type CommentUseCase struct {
-	repo *repository.Postgres
+	repo CommentRepository
+}
+type CommentRepository interface {
+	CreateComment(ctx context.Context, comment *entity.Comment) error
+	GetCommentsByPostID(ctx context.Context, postID int) ([]entity.Comment, error)
+	DeleteComment(ctx context.Context, commentID int, userID int) error
 }
 
-func NewCommentUseCase(repo *repository.Postgres) *CommentUseCase {
+func NewCommentUseCase(repo CommentRepository) *CommentUseCase {
 	return &CommentUseCase{repo: repo}
 }
 

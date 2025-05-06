@@ -9,14 +9,20 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/perfect1337/forum-service/internal/entity"
-	"github.com/perfect1337/forum-service/internal/repository"
 )
 
+type ChatRepository interface {
+	SaveChatMessage(ctx context.Context, msg *entity.ChatMessage) error
+	GetChatMessages(ctx context.Context, limit int) ([]entity.ChatMessage, error)
+	DeleteOldChatMessages(ctx context.Context, olderThan time.Duration) error
+}
+
 type ChatUseCase struct {
-	repo   repository.Postgres
+	repo   ChatRepository
 	authUC AuthUseCaseInterface
 	hub    *WebSocketHub
 }
+
 type AuthUseCaseInterface interface {
 	ParseToken(token string) (int64, string, error)
 }
@@ -31,25 +37,26 @@ type WebSocketHub struct {
 	mutex           sync.Mutex
 }
 
+type ChatUseCaseInterface interface {
+	SendMessage(ctx context.Context, message *entity.ChatMessage) error
+	GetMessages(ctx context.Context, limit int) ([]entity.ChatMessage, error)
+	DeleteOldMessages(ctx context.Context, olderThan time.Duration) error
+	HandleWebSocket(conn *websocket.Conn)
+}
 type WebSocketClient struct {
 	conn *websocket.Conn
 	send chan entity.ChatMessage
 }
 
-func NewChatUseCase(repo repository.Postgres, authUC AuthUseCaseInterface) *ChatUseCase {
+func NewChatUseCase(repo ChatRepository, authUC AuthUseCaseInterface) *ChatUseCase {
 	hub := newWebSocketHub(100)
 	go hub.run()
 
-	uc := &ChatUseCase{
+	return &ChatUseCase{
 		repo:   repo,
 		authUC: authUC,
 		hub:    hub,
 	}
-
-	// Запускаем очистку старых сообщений каждые 5 минут
-	go uc.startCleanupRoutine()
-
-	return uc
 }
 func (uc *ChatUseCase) startCleanupRoutine() {
 	ticker := time.NewTicker(5 * time.Minute)
