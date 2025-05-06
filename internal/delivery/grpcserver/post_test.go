@@ -1,5 +1,5 @@
-// internal/grpc/post_server_test.go
-package grpcserver
+// internal/delivery/grpcserver/server_test.go
+package grpcserver_test
 
 import (
 	"context"
@@ -7,12 +7,13 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/perfect1337/forum-service/internal/entity" // Импортируем наш пакет grpc
+	"github.com/perfect1337/forum-service/internal/delivery/grpcserver"
+	"github.com/perfect1337/forum-service/internal/entity"
 	"github.com/perfect1337/forum-service/internal/mocks"
 	postProto "github.com/perfect1337/forum-service/internal/proto/post"
 	userProto "github.com/perfect1337/forum-service/internal/proto/user"
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/grpc"
+	googlegrpc "google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -20,13 +21,13 @@ import (
 func TestPostServer_GetPostWithAuthor(t *testing.T) {
 	mockPostUC := new(mocks.MockPostUseCase)
 	mockUserClient := new(mocks.MockUserServiceClient)
-	mockConn := &grpc.ClientConn{} // Мок соединения не используется напрямую
+	mockConn := &googlegrpc.ClientConn{}
 
-	server := grpc.NewPostServer( // Используем функцию из нашего пакета grpc
+	server := grpcserver.NewPostServer(
 		mockPostUC,
 		mockConn,
 	)
-	server.UserClient = mockUserClient // Подменяем реальный клиент на мок
+	server.UserClient = mockUserClient
 
 	ctx := context.Background()
 
@@ -48,12 +49,13 @@ func TestPostServer_GetPostWithAuthor(t *testing.T) {
 		resp, err := server.GetPostWithAuthor(ctx, req)
 
 		assert.NoError(t, err)
-		assert.Equal(t, expectedPost.Title, resp.Post.Title)
+		assert.Equal(t, expectedPost.Title, resp.Title)
 		assert.Equal(t, "testuser", resp.AuthorName)
 		mockPostUC.AssertExpectations(t)
 		mockUserClient.AssertExpectations(t)
 	})
 
+	// Остальные тесты аналогично с исправлением обращения к полям ответа
 	t.Run("PostNotFound", func(t *testing.T) {
 		postID := 999
 		mockPostUC.On("GetPostByID", ctx, postID).Return((*entity.Post)(nil), errors.New("not found"))

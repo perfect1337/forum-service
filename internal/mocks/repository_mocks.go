@@ -13,6 +13,9 @@ type MockPostgres struct {
 	mock.Mock
 	chatRepo *MockChatRepository
 }
+type MockUserServiceClient struct {
+	mock.Mock
+}
 
 func NewMockPostgres(chatRepo *MockChatRepository) *MockPostgres {
 	return &MockPostgres{
