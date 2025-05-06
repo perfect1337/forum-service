@@ -1,5 +1,5 @@
 // internal/grpc/post_server_test.go
-package grpc_test
+package grpcserver
 
 import (
 	"context"
@@ -7,8 +7,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/perfect1337/forum-service/internal/entity"
-	"github.com/perfect1337/forum-service/internal/grpc" // Импортируем наш пакет grpc
+	"github.com/perfect1337/forum-service/internal/entity" // Импортируем наш пакет grpc
 	"github.com/perfect1337/forum-service/internal/mocks"
 	postProto "github.com/perfect1337/forum-service/internal/proto/post"
 	userProto "github.com/perfect1337/forum-service/internal/proto/user"
