@@ -1,20 +1,84 @@
 package main
 
 import (
+	"context"
 	"log"
+	"net"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/perfect1337/forum-service/internal/config"
 	"github.com/perfect1337/forum-service/internal/delivery"
+	grpcDelivery "github.com/perfect1337/forum-service/internal/delivery/grpc"
+	forumPostProto "github.com/perfect1337/forum-service/internal/proto/post"
 	"github.com/perfect1337/forum-service/internal/repository"
 	"github.com/perfect1337/forum-service/internal/usecase"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
+	// Create context with graceful shutdown
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Load configuration
 	cfg := config.Load()
 
+	// Initialize repository
+	repo, err := repository.NewPostgres(cfg)
+	if err != nil {
+		log.Fatalf("failed to initialize repository: %v", err)
+	}
+
+	// Initialize use cases
+	postUC := usecase.NewPostUseCase(repo)
+	commentUC := usecase.NewCommentUseCase(repo)
+	authUC := usecase.NewAuthUseCase(repo, cfg)
+	chatUC := usecase.NewChatUseCase(*repo, authUC)
+	userUC := usecase.NewUserUseCase(repo)
+	// Initialize gRPC connection to auth-service
+	authAddr := os.Getenv("AUTH_SERVICE_GRPC_ADDR")
+	if authAddr == "" {
+		authAddr = "localhost:50051"
+	}
+
+	authConn, err := grpc.DialContext(
+		ctx,
+		authAddr,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithBlock(),
+		grpc.WithTimeout(5*time.Second),
+	)
+	if err != nil {
+		log.Fatalf("failed to connect to auth service: %v", err)
+	}
+	defer authConn.Close()
+
+	// Initialize gRPC server
+	grpcSrv := grpc.NewServer()
+	forumPostProto.RegisterPostServiceServer(
+		grpcSrv,
+		grpcDelivery.NewPostServer(*postUC, authConn),
+	)
+
+	// Start gRPC server in goroutine
+	go func() {
+		lis, err := net.Listen("tcp", ":"+cfg.Postgres.GRPCPort)
+		if err != nil {
+			log.Fatalf("failed to listen: %v", err)
+		}
+		log.Printf("gRPC server listening on :%s", cfg.Postgres.GRPCPort)
+		if err := grpcSrv.Serve(lis); err != nil {
+			log.Fatalf("failed to serve gRPC: %v", err)
+		}
+	}()
+
+	// Initialize HTTP server
 	router := gin.Default()
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:3000"},
@@ -25,67 +89,48 @@ func main() {
 		MaxAge:           12 * time.Hour,
 	}))
 
-	router.OPTIONS("/*any", func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "http://localhost:3000")
-		c.Header("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Authorization, Content-Type")
-		c.Status(200)
-	})
-
-	router.Use(func(c *gin.Context) {
-		log.Printf("Incoming request: %s %s", c.Request.Method, c.Request.URL)
-		log.Printf("Headers: %v", c.Request.Header)
-		c.Next()
-	})
-
-	// Инициализация репозитория
-	repo, err := repository.NewPostgres(cfg)
-	if err != nil {
-		log.Fatalf("failed to initialize repository: %v", err)
-	}
-
-	// Инициализация usecases
-	postUC := usecase.NewPostUseCase(repo)
-	commentUC := usecase.NewCommentUseCase(repo)
-	authUC := usecase.NewAuthUseCase(repo, cfg)
-	chatUC := usecase.NewChatUseCase(*repo, authUC)
-	chatHandler := delivery.NewChatHandler(chatUC)
-	// Инициализация обработчиков
-	postHandler := delivery.NewPostHandler(*postUC, *commentUC)
+	// Initialize handlers
+	postHandler := delivery.NewPostHandler(*postUC, *commentUC, *userUC)
 	commentHandler := delivery.NewCommentHandler(*commentUC)
 	authHandler := delivery.NewAuthHandler(*authUC)
+	chatHandler := delivery.NewChatHandler(chatUC)
 
-	// Группа для аутентификации
+	// Setup routes
+
+	// Auth routes
 	authGroup := router.Group("/auth")
 	{
 		authGroup.GET("/validate", authHandler.ValidateToken)
 	}
-	//chat group
 
-	chatGroup := router.Group("/chat")
+	// Chat routes
+	chat := router.Group("/chat")
 	{
-		chatGroup.GET("/messages", chatHandler.GetMessages)
-		chatGroup.GET("/ws", chatHandler.HandleWebSocket)
+		chat.GET("/messages", chatHandler.GetMessages)
+		chat.GET("/ws", chatHandler.HandleWebSocket)
 	}
-	// Группа для постов
-	postsGroup := router.Group("/posts")
-	{
-		postsGroup.GET("", postHandler.GetAllPosts)
-		postsGroup.GET("/:id", postHandler.GetPostByID)
 
-		protected := postsGroup.Group("")
+	// Posts routes
+	posts := router.Group("/posts")
+	{
+		posts.GET("", postHandler.GetAllPosts)
+		posts.GET("/:id", postHandler.GetPostByID)
+
+		// Protected routes
+		protected := posts.Group("")
 		protected.Use(delivery.AuthMiddleware(cfg))
 		{
 			protected.POST("", postHandler.CreatePost)
-			protected.DELETE("/:id", postHandler.DeletePost) // Переносим DELETE сюда
+			protected.DELETE("/:id", postHandler.DeletePost)
 		}
 
-		// Группа для комментариев
-		commentsGroup := postsGroup.Group("/:id/comments")
+		// Comments routes
+		comments := posts.Group("/:id/comments")
 		{
-			commentsGroup.GET("", commentHandler.GetComments)
+			comments.GET("", commentHandler.GetComments)
 
-			protectedComments := commentsGroup.Group("")
+			// Protected comments routes
+			protectedComments := comments.Group("")
 			protectedComments.Use(delivery.AuthMiddleware(cfg))
 			{
 				protectedComments.POST("", commentHandler.CreateComment)
@@ -94,8 +139,25 @@ func main() {
 		}
 	}
 
-	log.Printf("Server is running on port %s", cfg.Server.Port)
-	if err := router.Run(":" + cfg.Server.Port); err != nil {
-		log.Fatalf("failed to run server: %v", err)
-	}
+	// Start HTTP server in goroutine
+	go func() {
+		log.Printf("HTTP server starting on :%s", cfg.Server.Port)
+		if err := router.Run(":" + cfg.Server.Port); err != nil {
+			log.Fatalf("failed to start HTTP server: %v", err)
+		}
+	}()
+
+	// Graceful shutdown
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Println("Shutting down server...")
+
+	// Gracefully stop gRPC server
+	grpcSrv.GracefulStop()
+
+	// Cancel context
+	cancel()
+
+	log.Println("Server exited properly")
 }

@@ -14,39 +14,32 @@ type CommentRepository interface {
 	DeleteComment(ctx context.Context, commentID int, userID string) error
 }
 
-func (r *Postgres) CreateComment(ctx context.Context, comment *entity.Comment) error {
-	query := `
-        INSERT INTO comments (post_id, author_id, author, text, created_at)
-        VALUES ($1, $2, $3, $4, $5)
-        RETURNING id
-    `
-
-	err := r.db.QueryRowContext(ctx, query,
-		comment.PostID,
-		comment.AuthorID,
-		comment.Author, // Добавляем имя автора
-		comment.Text,
-		comment.CreatedAt,
-	).Scan(&comment.ID)
-
-	if err != nil {
-		return fmt.Errorf("failed to create comment: %w", err)
-	}
-
-	return nil
+func (p *Postgres) CreateComment(ctx context.Context, comment *entity.Comment) error {
+	query := `INSERT INTO comments (content, post_id, user_id) 
+              VALUES ($1, $2, $3)
+              RETURNING id, created_at`
+	return p.db.QueryRowContext(ctx, query,
+		comment.Content, comment.PostID, comment.UserID).
+		Scan(&comment.ID, &comment.CreatedAt)
 }
-func (r *Postgres) GetCommentsByPostID(ctx context.Context, postID int) ([]entity.Comment, error) {
-	query := `
-        SELECT c.id, c.post_id, c.author_id, u.username as author, c.text, c.created_at
-        FROM comments c
-        JOIN users u ON c.author_id = u.id::text  -- Приводим id к text если необходимо
-        WHERE c.post_id = $1
-        ORDER BY c.created_at DESC
-    `
 
-	rows, err := r.db.QueryContext(ctx, query, postID)
+func (p *Postgres) GetCommentsByPostID(ctx context.Context, postID int) ([]entity.Comment, error) {
+	query := `
+        SELECT 
+            c.id, 
+            c.content, 
+            c.post_id, 
+            c.user_id, 
+            u.username AS author,
+            c.created_at
+        FROM comments c
+        JOIN users u ON c.user_id = u.id
+        WHERE c.post_id = $1
+        ORDER BY c.created_at
+    `
+	rows, err := p.db.QueryContext(ctx, query, postID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get comments: %w", err)
+		return nil, fmt.Errorf("failed to query comments for post %d: %w", postID, err)
 	}
 	defer rows.Close()
 
@@ -55,21 +48,23 @@ func (r *Postgres) GetCommentsByPostID(ctx context.Context, postID int) ([]entit
 		var comment entity.Comment
 		if err := rows.Scan(
 			&comment.ID,
+			&comment.Content,
 			&comment.PostID,
-			&comment.AuthorID,
+			&comment.UserID,
 			&comment.Author,
-			&comment.Text,
 			&comment.CreatedAt,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan comment: %w", err)
 		}
 		comments = append(comments, comment)
 	}
-
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("rows error: %w", err)
+	}
 	return comments, nil
 }
-func (p *Postgres) DeleteComment(ctx context.Context, commentID int, userID string) error {
-	query := `DELETE FROM comments WHERE id = $1 AND author_id = $2`
+func (p *Postgres) DeleteComment(ctx context.Context, commentID int, userID int) error {
+	query := `DELETE FROM comments WHERE id = $1 AND user_id = $2`
 
 	result, err := p.db.ExecContext(ctx, query, commentID, userID)
 	if err != nil {

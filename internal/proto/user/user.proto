@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package user;
 
-option go_package = "github.com/perfect1337/forum-service/internal/proto/user";
+option go_package = "github.com/perfect1337/auth-service/internal/proto/user";
 
 service UserService {
   rpc GetUsername (UserRequest) returns (UserResponse);

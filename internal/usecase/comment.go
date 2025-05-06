@@ -23,6 +23,6 @@ func (uc *CommentUseCase) GetCommentsByPostID(ctx context.Context, postID int) (
 	return uc.repo.GetCommentsByPostID(ctx, postID)
 }
 
-func (uc *CommentUseCase) DeleteComment(ctx context.Context, commentID int, userID string) error {
+func (uc *CommentUseCase) DeleteComment(ctx context.Context, commentID int, userID int) error {
 	return uc.repo.DeleteComment(ctx, commentID, userID)
 }

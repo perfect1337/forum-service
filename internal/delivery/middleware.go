@@ -20,71 +20,63 @@ func NewAuthHandler(authUC usecase.AuthUseCase) *AuthHandler {
 }
 
 func (h *AuthHandler) ValidateToken(c *gin.Context) {
-	tokenString := c.Query("token")
+	tokenString := extractToken(c)
 	if tokenString == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"valid": false})
+		c.JSON(http.StatusBadRequest, gin.H{"valid": false, "error": "token not provided"})
 		return
 	}
 
+	valid, err := h.validateJWT(tokenString)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"valid": false, "error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"valid": valid})
+}
+
+func (h *AuthHandler) validateJWT(tokenString string) (bool, error) {
 	_, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
 		return []byte(h.authUC.SecretKey), nil
 	})
 
 	if err != nil {
-		c.JSON(http.StatusOK, gin.H{"valid": false})
-		return
+		return false, err
 	}
-
-	c.JSON(http.StatusOK, gin.H{"valid": true})
+	return true, nil
 }
 
 func extractToken(c *gin.Context) string {
-	// 1. Проверяем Authorization header
-	tokenString := c.GetHeader("Authorization")
-	if tokenString != "" {
-		return strings.Replace(tokenString, "Bearer ", "", 1)
+	// Check Authorization header first
+	if token := strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer "); token != "" {
+		return token
 	}
 
-	// 2. Проверяем cookie
-	tokenString, _ = c.Cookie("access_token")
-	if tokenString != "" {
-		return tokenString
+	// Then check cookie
+	if token, _ := c.Cookie("access_token"); token != "" {
+		return token
 	}
 
-	// 3. Проверяем query parameter
-	tokenString = c.Query("token")
-	return tokenString
+	// Finally check query parameter
+	return c.Query("token")
 }
 
 func AuthMiddleware(cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Skip OPTIONS requests
 		if c.Request.Method == "OPTIONS" {
 			c.Next()
 			return
 		}
 
-		// Get the Authorization header
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error": "Authorization header required",
-				"code":  "missing_auth_header",
-			})
+		tokenString := extractToken(c)
+		if tokenString == "" {
+			abortWithAuthError(c, "Authorization token required", "missing_token")
 			return
 		}
 
-		// Extract the token (handle Bearer prefix)
-		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-		if tokenString == authHeader {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error": "Bearer token required",
-				"code":  "invalid_token_format",
-			})
-			return
-		}
-
-		// Parse the token
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
@@ -93,46 +85,58 @@ func AuthMiddleware(cfg *config.Config) gin.HandlerFunc {
 		})
 
 		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error":   "Invalid token",
-				"details": err.Error(),
-				"code":    "invalid_token",
-			})
+			abortWithAuthError(c, "Invalid token", "invalid_token", "details", err.Error())
 			return
 		}
 
-		// Validate claims
 		if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
-			// Handle user_id (it might be float64 or int)
-			userID, ok := claims["user_id"].(float64)
-			role, _ := claims["role"].(string)
-			c.Set("user_role", role)
-			if !ok {
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-					"error": "Invalid user_id in token",
-					"code":  "invalid_user_id",
-				})
+			userID, username, role, err := extractClaims(claims)
+			if err != nil {
+				abortWithAuthError(c, err.Error(), "invalid_claims")
 				return
 			}
 
-			username, ok := claims["username"].(string)
-			if !ok {
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-					"error": "Invalid username in token",
-					"code":  "invalid_username",
-				})
-				return
-			}
-
-			// Set values in context
-			c.Set("user_id", int(userID))
+			c.Set("user_id", userID)
 			c.Set("username", username)
+			c.Set("user_role", role)
 			c.Next()
 		} else {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error": "Invalid token claims",
-				"code":  "invalid_claims",
-			})
+			abortWithAuthError(c, "Invalid token claims", "invalid_claims")
 		}
 	}
+}
+
+func extractClaims(claims jwt.MapClaims) (int, string, string, error) {
+	userID, ok := claims["user_id"].(float64)
+	if !ok {
+		return 0, "", "", fmt.Errorf("invalid user_id in token")
+	}
+
+	username, ok := claims["username"].(string)
+	if !ok {
+		return 0, "", "", fmt.Errorf("invalid username in token")
+	}
+
+	role, _ := claims["role"].(string) // role is optional
+
+	return int(userID), username, role, nil
+}
+
+func abortWithAuthError(c *gin.Context, errorMsg string, errorCode string, extra ...interface{}) {
+	response := gin.H{
+		"error": errorMsg,
+		"code":  errorCode,
+	}
+
+	// Add extra fields if provided
+	for i := 0; i < len(extra); i += 2 {
+		if i+1 < len(extra) {
+			key, ok := extra[i].(string)
+			if ok {
+				response[key] = extra[i+1]
+			}
+		}
+	}
+
+	c.AbortWithStatusJSON(http.StatusUnauthorized, response)
 }

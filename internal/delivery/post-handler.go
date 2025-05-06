@@ -1,7 +1,6 @@
 package delivery
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -13,12 +12,14 @@ import (
 type PostHandler struct {
 	postUC    usecase.PostUseCase
 	commentUC usecase.CommentUseCase
+	userUC    usecase.UserUseCase // Добавляем UserUseCase
 }
 
-func NewPostHandler(postUC usecase.PostUseCase, commentUC usecase.CommentUseCase) *PostHandler {
+func NewPostHandler(postUC usecase.PostUseCase, commentUC usecase.CommentUseCase, userUC usecase.UserUseCase) *PostHandler {
 	return &PostHandler{
 		postUC:    postUC,
 		commentUC: commentUC,
+		userUC:    userUC,
 	}
 }
 
@@ -35,7 +36,13 @@ func (h *PostHandler) CreatePost(c *gin.Context) {
 		return
 	}
 
-	post.Author = fmt.Sprintf("%v", userID)
+	post.UserID = userID.(int)
+
+	// Получаем имя автора
+	user, err := h.userUC.GetUserByID(c.Request.Context(), post.UserID)
+	if err == nil {
+		post.Author = user.Username
+	}
 
 	if err := h.postUC.CreatePost(c.Request.Context(), &post); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -58,10 +65,24 @@ func (h *PostHandler) GetPostByID(c *gin.Context) {
 		return
 	}
 
+	// Получаем имя автора
+	user, err := h.userUC.GetUserByID(c.Request.Context(), post.UserID)
+	if err == nil {
+		post.Author = user.Username
+	}
+
 	comments, err := h.commentUC.GetCommentsByPostID(c.Request.Context(), id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
+	}
+
+	// Получаем имена авторов комментариев
+	for i := range comments {
+		user, err := h.userUC.GetUserByID(c.Request.Context(), comments[i].UserID)
+		if err == nil {
+			comments[i].Author = user.Username
+		}
 	}
 
 	response := gin.H{
@@ -81,13 +102,28 @@ func (h *PostHandler) GetAllPosts(c *gin.Context) {
 		return
 	}
 
-	if includeComments {
-		for i := range posts {
+	// Получаем имена авторов для постов
+	for i := range posts {
+		user, err := h.userUC.GetUserByID(c.Request.Context(), posts[i].UserID)
+		if err == nil {
+			posts[i].Author = user.Username
+		}
+
+		if includeComments {
 			comments, err := h.commentUC.GetCommentsByPostID(c.Request.Context(), posts[i].ID)
 			if err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 				return
 			}
+
+			// Получаем имена авторов для комментариев
+			for j := range comments {
+				user, err := h.userUC.GetUserByID(c.Request.Context(), comments[j].UserID)
+				if err == nil {
+					comments[j].Author = user.Username
+				}
+			}
+
 			posts[i].Comments = comments
 		}
 	}
@@ -96,16 +132,14 @@ func (h *PostHandler) GetAllPosts(c *gin.Context) {
 }
 
 func (h *PostHandler) DeletePost(c *gin.Context) {
-
 	postID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid post ID"})
 		return
 	}
 
-	// Для не-админов проверяем авторство
-
-	if err := h.postUC.DeletePost(c.Request.Context(), postID); err != nil {
+	userID, _ := c.Get("user_id")
+	if err := h.postUC.DeletePost(c.Request.Context(), postID, userID.(int)); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

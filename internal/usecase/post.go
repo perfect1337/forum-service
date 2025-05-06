@@ -46,7 +46,24 @@ func (uc *AuthUseCase) ParseToken(tokenString string) (int64, string, error) {
 }
 
 // internal/usecase/post.go
-func (uc *PostUseCase) DeletePost(ctx context.Context, postID int) error {
+func (uc *PostUseCase) DeletePost(ctx context.Context, postID, userID int) error {
+	// Проверяем, что пользователь является автором поста или админом
+	post, err := uc.repo.GetPostByID(ctx, postID)
+	if err != nil {
+		return err
+	}
+
+	// Получаем текущего пользователя
+	user, err := uc.repo.GetUserByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+
+	// Проверяем права доступа
+	if post.UserID != userID && user.Role != "admin" {
+		return errors.New("unauthorized: you can only delete your own posts")
+	}
+
 	return uc.repo.DeletePost(ctx, postID)
 }
 func (p *PostUseCase) CreatePost(ctx context.Context, post *entity.Post) error {

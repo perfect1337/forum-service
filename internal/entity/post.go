@@ -4,12 +4,13 @@ import "time"
 
 // internal/entity/post.go
 type Post struct {
-	ID        int       `json:"id"`
-	Title     string    `json:"title"`
-	Content   string    `json:"content"`
-	Author    string    `json:"author"`
-	CreatedAt time.Time `json:"created_at"`
-	Comments  []Comment `json:"comments,omitempty"`
+	ID        int       `json:"id" db:"id"`
+	Title     string    `json:"title" db:"title"`
+	Content   string    `json:"content" db:"content"`
+	UserID    int       `json:"user_id" db:"user_id"`
+	Author    string    `json:"author" db:"-"` // db:"-" означает, что это поле не маппится напрямую
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	Comments  []Comment `json:"comments,omitempty" db:"-"`
 }
 type User struct {
 	ID           int    `json:"id"`
