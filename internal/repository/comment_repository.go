@@ -16,8 +16,8 @@ type CommentRepository interface {
 
 func (p *Postgres) CreateComment(ctx context.Context, comment *entity.Comment) error {
 	query := `INSERT INTO comments (content, post_id, user_id) 
-              VALUES ($1, $2, $3)
-              RETURNING id, created_at`
+				VALUES ($1, $2, $3)
+				RETURNING id, created_at`
 	return p.db.QueryRowContext(ctx, query,
 		comment.Content, comment.PostID, comment.UserID).
 		Scan(&comment.ID, &comment.CreatedAt)
@@ -25,18 +25,18 @@ func (p *Postgres) CreateComment(ctx context.Context, comment *entity.Comment) e
 
 func (p *Postgres) GetCommentsByPostID(ctx context.Context, postID int) ([]entity.Comment, error) {
 	query := `
-        SELECT 
-            c.id, 
-            c.content, 
-            c.post_id, 
-            c.user_id, 
-            u.username AS author,
-            c.created_at
-        FROM comments c
-        JOIN users u ON c.user_id = u.id
-        WHERE c.post_id = $1
-        ORDER BY c.created_at
-    `
+			SELECT 
+				c.id, 
+				c.content, 
+				c.post_id, 
+				c.user_id, 
+				u.username AS author,
+				c.created_at
+			FROM comments c
+			JOIN users u ON c.user_id = u.id
+			WHERE c.post_id = $1
+			ORDER BY c.created_at
+		`
 	rows, err := p.db.QueryContext(ctx, query, postID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query comments for post %d: %w", postID, err)

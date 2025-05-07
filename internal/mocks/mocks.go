@@ -1,4 +1,3 @@
-// internal/mocks/mocks.go
 package mocks
 
 import (
@@ -16,22 +15,41 @@ import (
 type MockPostgres struct {
 	mock.Mock
 }
+
+// MockPostRepository имитирует repository.PostRepository
 type MockPostRepository struct {
 	mock.Mock
 }
 
 func (m *MockPostRepository) CreatePost(ctx context.Context, post *entity.Post) error {
 	args := m.Called(ctx, post)
+
+	// Simulate database behavior by setting an ID if no error
+	if args.Error(0) == nil {
+		post.ID = 1 // Or any non-zero value
+	}
+
 	return args.Error(0)
-}
-func (m *MockPostRepository) GetPostByID(ctx context.Context, id int) (*entity.Post, error) {
-	args := m.Called(ctx, id)
-	return args.Get(0).(*entity.Post), args.Error(1)
 }
 
 func (m *MockPostRepository) GetAllPosts(ctx context.Context) ([]*entity.Post, error) {
 	args := m.Called(ctx)
+
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+
 	return args.Get(0).([]*entity.Post), args.Error(1)
+}
+
+func (m *MockPostRepository) GetPostByID(ctx context.Context, id int) (*entity.Post, error) {
+	args := m.Called(ctx, id)
+
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+
+	return args.Get(0).(*entity.Post), args.Error(1)
 }
 
 func (m *MockPostRepository) DeletePost(ctx context.Context, id int) error {
@@ -72,7 +90,12 @@ type MockUserServiceClient struct {
 }
 
 func (m *MockUserServiceClient) GetUsername(ctx context.Context, in *user.UserRequest, opts ...grpc.CallOption) (*user.UserResponse, error) {
-	args := m.Called(ctx, in)
+	args := m.Called(ctx, in, opts)
+
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+
 	return args.Get(0).(*user.UserResponse), args.Error(1)
 }
 
@@ -91,10 +114,16 @@ type MockChatRepository struct {
 	mock.Mock
 }
 
+func (m *MockChatRepository) CreateChatMessage(ctx context.Context, msg *entity.ChatMessage) error {
+	args := m.Called(ctx, msg)
+	return args.Error(0)
+}
+
 func (m *MockChatRepository) SaveChatMessage(ctx context.Context, msg *entity.ChatMessage) error {
 	args := m.Called(ctx, msg)
 	return args.Error(0)
 }
+
 func (m *MockChatRepository) GetChatMessages(ctx context.Context, limit int) ([]entity.ChatMessage, error) {
 	args := m.Called(ctx, limit)
 	return args.Get(0).([]entity.ChatMessage), args.Error(1)
@@ -117,6 +146,11 @@ func (m *MockCommentRepository) CreateComment(ctx context.Context, comment *enti
 
 func (m *MockCommentRepository) GetCommentsByPostID(ctx context.Context, postID int) ([]entity.Comment, error) {
 	args := m.Called(ctx, postID)
+
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+
 	return args.Get(0).([]entity.Comment), args.Error(1)
 }
 
@@ -132,10 +166,20 @@ type MockUserRepository struct {
 
 func (m *MockUserRepository) GetUserByID(ctx context.Context, id int) (*entity.User, error) {
 	args := m.Called(ctx, id)
+
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+
 	return args.Get(0).(*entity.User), args.Error(1)
 }
 
 func (m *MockUserRepository) GetUsersByIDs(ctx context.Context, ids []int) (map[int]*entity.User, error) {
 	args := m.Called(ctx, ids)
+
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+
 	return args.Get(0).(map[int]*entity.User), args.Error(1)
 }

@@ -11,12 +11,11 @@ import (
 	"github.com/perfect1337/forum-service/internal/repository"
 )
 
-// Интерфейс UseCase
 type PostUseCase interface {
 	CreatePost(ctx context.Context, post *entity.Post) error
 	GetPostByID(ctx context.Context, id int) (*entity.Post, error)
 	GetAllPosts(ctx context.Context) ([]*entity.Post, error)
-	DeletePost(ctx context.Context, postID, userID int) error // Два параметра!
+	DeletePost(ctx context.Context, postID, userID int) error
 }
 
 type PostRepository interface {
@@ -29,8 +28,6 @@ type PostRepository interface {
 type UserRepository interface {
 	GetUserByID(ctx context.Context, id int) (*entity.User, error)
 }
-
-// Реализация интерфейса
 type PostService struct {
 	postRepo PostRepository
 	userRepo UserRepository
@@ -79,13 +76,14 @@ func (s *PostService) DeletePost(ctx context.Context, postID, userID int) error 
 		return err
 	}
 
+	fmt.Printf("Debug: post.UserID=%d, userID=%d, user.Role=%s\n", post.UserID, userID, user.Role)
+
 	if post.UserID != userID && user.Role != "admin" {
 		return errors.New("unauthorized: you can only delete your own posts")
 	}
 
 	return s.postRepo.DeletePost(ctx, postID)
 }
-
 func (s *PostService) CreatePost(ctx context.Context, post *entity.Post) error {
 	if post == nil {
 		return errors.New("post cannot be nil")
@@ -99,8 +97,6 @@ func (s *PostService) CreatePost(ctx context.Context, post *entity.Post) error {
 	if post.UserID == 0 {
 		return errors.New("user ID cannot be empty")
 	}
-
-	// Возвращаем ошибку напрямую из репозитория
 	return s.postRepo.CreatePost(ctx, post)
 }
 
@@ -112,7 +108,6 @@ func (s *PostService) GetAllPosts(ctx context.Context) ([]*entity.Post, error) {
 	return s.postRepo.GetAllPosts(ctx)
 }
 
-// Конструкторы
 func NewAuthUseCase(repo *repository.Postgres, cfg *config.Config) *AuthUseCase {
 	return &AuthUseCase{
 		repo:      repo,
