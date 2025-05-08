@@ -104,6 +104,9 @@ type MockAuthUseCase struct {
 	mock.Mock
 }
 
+/*************  ✨ Windsurf Command ⭐  *************/
+// ParseToken parses a JWT token and returns the user ID, username and an error.
+/*******  77885465-93a9-4ca1-a737-08f3618a1cf6  *******/
 func (m *MockAuthUseCase) ParseToken(token string) (int64, string, error) {
 	args := m.Called(token)
 	return args.Get(0).(int64), args.String(1), args.Error(2)
@@ -182,4 +185,23 @@ func (m *MockUserRepository) GetUsersByIDs(ctx context.Context, ids []int) (map[
 	}
 
 	return args.Get(0).(map[int]*entity.User), args.Error(1)
+}
+func (m *MockPostgres) DeleteOldChatMessages(ctx context.Context, olderThan time.Duration) error {
+	args := m.Called(ctx, olderThan)
+	return args.Error(0)
+}
+
+func (m *MockPostgres) CreateChatMessage(ctx context.Context, message *entity.ChatMessage) error {
+	args := m.Called(ctx, message)
+	return args.Error(0)
+}
+
+func (m *MockPostgres) GetChatMessages(ctx context.Context, limit int) ([]entity.ChatMessage, error) {
+	args := m.Called(ctx, limit)
+	return args.Get(0).([]entity.ChatMessage), args.Error(1)
+}
+
+func (m *MockPostgres) SaveChatMessage(ctx context.Context, message *entity.ChatMessage) error {
+	args := m.Called(ctx, message)
+	return args.Error(0)
 }
