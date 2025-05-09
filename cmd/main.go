@@ -12,8 +12,8 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/perfect1337/forum-service/internal/config"
-	"github.com/perfect1337/forum-service/internal/delivery"
 	grpcDelivery "github.com/perfect1337/forum-service/internal/delivery/grpcserver"
+	delivery "github.com/perfect1337/forum-service/internal/delivery/http"
 	forumPostProto "github.com/perfect1337/forum-service/internal/proto/post"
 	"github.com/perfect1337/forum-service/internal/repository"
 	"github.com/perfect1337/forum-service/internal/usecase"
@@ -90,9 +90,9 @@ func main() {
 	}))
 
 	// Initialize handlers
-	postHandler := delivery.NewPostHandler(postUC, *commentUC, *userUC)
-	commentHandler := delivery.NewCommentHandler(*commentUC)
-	authHandler := delivery.NewAuthHandler(*authUC)
+	postHandler := delivery.NewPostHandler(postUC, commentUC, userUC)
+	commentHandler := delivery.NewCommentHandler(commentUC)
+	authHandler := delivery.NewAuthHandler(authUC)
 	chatHandler := delivery.NewChatHandler(chatUC)
 
 	// Setup routes

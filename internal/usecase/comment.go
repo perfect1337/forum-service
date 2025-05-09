@@ -10,16 +10,21 @@ import (
 type CommentUseCase struct {
 	repo CommentRepository
 }
+
 type CommentRepository interface {
 	CreateComment(ctx context.Context, comment *entity.Comment) error
 	GetCommentsByPostID(ctx context.Context, postID int) ([]entity.Comment, error)
 	DeleteComment(ctx context.Context, commentID int, userID int) error
 }
+type CommentUseCaseInterface interface {
+	CreateComment(ctx context.Context, comment *entity.Comment) error
+	GetCommentsByPostID(ctx context.Context, postID int) ([]entity.Comment, error)
+	DeleteComment(ctx context.Context, commentID, userID int) error
+}
 
 func NewCommentUseCase(repo CommentRepository) *CommentUseCase {
 	return &CommentUseCase{repo: repo}
 }
-
 func (uc *CommentUseCase) CreateComment(ctx context.Context, comment *entity.Comment) error {
 	if comment.Content == "" {
 		return errors.New("comment content cannot be empty")

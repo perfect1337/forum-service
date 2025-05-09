@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/perfect1337/forum-service/internal/config"
@@ -107,11 +108,9 @@ func (s *PostService) GetPostByID(ctx context.Context, id int) (*entity.Post, er
 func (s *PostService) GetAllPosts(ctx context.Context) ([]*entity.Post, error) {
 	return s.postRepo.GetAllPosts(ctx)
 }
-
 func NewAuthUseCase(repo *repository.Postgres, cfg *config.Config) *AuthUseCase {
 	return &AuthUseCase{
 		repo:      repo,
-		cfg:       cfg,
 		SecretKey: []byte(cfg.Auth.SecretKey),
 	}
 }
@@ -121,4 +120,15 @@ func NewPostUseCase(postRepo PostRepository, userRepo UserRepository) PostUseCas
 		postRepo: postRepo,
 		userRepo: userRepo,
 	}
+}
+
+func (uc *AuthUseCase) GenerateToken(userID int, username string) (string, error) {
+	claims := jwt.MapClaims{
+		"user_id":  userID,
+		"username": username,
+		"exp":      time.Now().Add(time.Hour * 72).Unix(),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(uc.SecretKey)
 }

@@ -22,3 +22,8 @@ func (uc *UserUseCase) GetUserByID(ctx context.Context, id int) (*entity.User, e
 func (uc *UserUseCase) GetUsersByIDs(ctx context.Context, ids []int) (map[int]*entity.User, error) {
 	return uc.userRepo.GetUsersByIDs(ctx, ids)
 }
+
+type UserUseCaseInterface interface {
+	GetUserByID(ctx context.Context, id int) (*entity.User, error)
+	GetUsersByIDs(ctx context.Context, ids []int) (map[int]*entity.User, error)
+}

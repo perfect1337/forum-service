@@ -18,10 +18,10 @@ var upgrader = websocket.Upgrader{
 }
 
 type ChatHandler struct {
-	chatUC *usecase.ChatUseCase
+	chatUC usecase.ChatUseCaseInterface
 }
 
-func NewChatHandler(chatUC *usecase.ChatUseCase) *ChatHandler {
+func NewChatHandler(chatUC usecase.ChatUseCaseInterface) *ChatHandler {
 	return &ChatHandler{chatUC: chatUC}
 }
 func (h *ChatHandler) HandleWebSocket(c *gin.Context) {

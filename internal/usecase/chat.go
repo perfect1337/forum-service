@@ -24,7 +24,9 @@ type ChatUseCase struct {
 }
 
 type AuthUseCaseInterface interface {
-	ParseToken(token string) (int64, string, error)
+	SecretKey() []byte
+	GenerateToken(userID int, username string) (string, error)
+	ParseToken(tokenString string) (int64, string, error)
 }
 
 type WebSocketHub struct {
@@ -40,7 +42,6 @@ type WebSocketHub struct {
 type ChatUseCaseInterface interface {
 	SendMessage(ctx context.Context, message *entity.ChatMessage) error
 	GetMessages(ctx context.Context, limit int) ([]entity.ChatMessage, error)
-	DeleteOldMessages(ctx context.Context, olderThan time.Duration) error
 	HandleWebSocket(conn *websocket.Conn)
 }
 type WebSocketClient struct {

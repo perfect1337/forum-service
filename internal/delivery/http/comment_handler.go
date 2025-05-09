@@ -12,13 +12,12 @@ import (
 )
 
 type CommentHandler struct {
-	commentUC usecase.CommentUseCase
+	commentUC usecase.CommentUseCaseInterface
 }
 
-func NewCommentHandler(commentUC usecase.CommentUseCase) *CommentHandler {
+func NewCommentHandler(commentUC usecase.CommentUseCaseInterface) *CommentHandler {
 	return &CommentHandler{commentUC: commentUC}
 }
-
 func (h *CommentHandler) CreateComment(c *gin.Context) {
 	userID, exists := c.Get("user_id")
 	if !exists {

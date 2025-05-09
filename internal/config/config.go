@@ -25,6 +25,7 @@ type Config struct {
 		RefreshTokenDuration time.Duration
 		SecretKey            string
 	}
+
 	Migrations struct {
 		Enable bool
 	}

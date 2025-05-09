@@ -11,11 +11,15 @@ import (
 
 type PostHandler struct {
 	postUC    usecase.PostUseCase
-	commentUC usecase.CommentUseCase
-	userUC    usecase.UserUseCase // Добавляем UserUseCase
+	commentUC usecase.CommentUseCaseInterface
+	userUC    usecase.UserUseCaseInterface
 }
 
-func NewPostHandler(postUC usecase.PostUseCase, commentUC usecase.CommentUseCase, userUC usecase.UserUseCase) *PostHandler {
+func NewPostHandler(
+	postUC usecase.PostUseCase,
+	commentUC usecase.CommentUseCaseInterface,
+	userUC usecase.UserUseCaseInterface,
+) *PostHandler {
 	return &PostHandler{
 		postUC:    postUC,
 		commentUC: commentUC,
@@ -138,7 +142,12 @@ func (h *PostHandler) DeletePost(c *gin.Context) {
 		return
 	}
 
-	userID, _ := c.Get("user_id")
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+		return
+	}
+
 	if err := h.postUC.DeletePost(c.Request.Context(), postID, userID.(int)); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
