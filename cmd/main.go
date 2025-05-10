@@ -38,7 +38,7 @@ func main() {
 	// Initialize use cases
 	postUC := usecase.NewPostUseCase(repo, repo)
 	commentUC := usecase.NewCommentUseCase(repo)
-	authUC := usecase.NewAuthUseCase(repo, cfg)
+	authUC := usecase.NewAuthUseCase(*repo, cfg)
 	chatUC := usecase.NewChatUseCase(repo, authUC)
 	userUC := usecase.NewUserUseCase(repo)
 	// Initialize gRPC connection to auth-service

@@ -4,12 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/dgrijalva/jwt-go"
-	"github.com/perfect1337/forum-service/internal/config"
 	"github.com/perfect1337/forum-service/internal/entity"
-	"github.com/perfect1337/forum-service/internal/repository"
 )
 
 type PostUseCase interface {
@@ -34,35 +31,10 @@ type PostService struct {
 	userRepo UserRepository
 }
 
-type AuthUseCase struct {
-	repo      *repository.Postgres
-	cfg       *config.Config
-	SecretKey []byte
-}
-
 type JWTClaims struct {
 	UserID   int64  `json:"user_id"`
 	Username string `json:"username"`
 	jwt.StandardClaims
-}
-
-func (uc *AuthUseCase) ParseToken(tokenString string) (int64, string, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return uc.SecretKey, nil
-	})
-
-	if err != nil {
-		return 0, "", err
-	}
-
-	if claims, ok := token.Claims.(*JWTClaims); ok && token.Valid {
-		return claims.UserID, claims.Username, nil
-	}
-
-	return 0, "", errors.New("invalid token claims")
 }
 
 // Реализация методов PostUseCase
@@ -108,27 +80,10 @@ func (s *PostService) GetPostByID(ctx context.Context, id int) (*entity.Post, er
 func (s *PostService) GetAllPosts(ctx context.Context) ([]*entity.Post, error) {
 	return s.postRepo.GetAllPosts(ctx)
 }
-func NewAuthUseCase(repo *repository.Postgres, cfg *config.Config) *AuthUseCase {
-	return &AuthUseCase{
-		repo:      repo,
-		SecretKey: []byte(cfg.Auth.SecretKey),
-	}
-}
 
 func NewPostUseCase(postRepo PostRepository, userRepo UserRepository) PostUseCase {
 	return &PostService{
 		postRepo: postRepo,
 		userRepo: userRepo,
 	}
-}
-
-func (uc *AuthUseCase) GenerateToken(userID int, username string) (string, error) {
-	claims := jwt.MapClaims{
-		"user_id":  userID,
-		"username": username,
-		"exp":      time.Now().Add(time.Hour * 72).Unix(),
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(uc.SecretKey)
 }

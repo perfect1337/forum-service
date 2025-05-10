@@ -146,6 +146,3 @@ func abortWithAuthError(c *gin.Context, errorMsg string, errorCode string, extra
 
 	c.AbortWithStatusJSON(http.StatusUnauthorized, response)
 }
-func (uc *AuthUseCase) SecretKey() []byte {
-	return uc.SecretKey
-}

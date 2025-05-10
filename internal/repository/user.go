@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 
+	"github.com/lib/pq"
 	"github.com/perfect1337/forum-service/internal/entity"
 	"github.com/stretchr/testify/mock"
 )
@@ -31,8 +32,12 @@ func (p *Postgres) GetUserByID(ctx context.Context, id int) (*entity.User, error
 }
 
 func (p *Postgres) GetUsersByIDs(ctx context.Context, ids []int) (map[int]*entity.User, error) {
+	if len(ids) == 0 {
+		return make(map[int]*entity.User), nil
+	}
+
 	query := `SELECT id, username, email, role FROM users WHERE id = ANY($1)`
-	rows, err := p.db.QueryContext(ctx, query, ids)
+	rows, err := p.db.QueryContext(ctx, query, pq.Array(ids))
 	if err != nil {
 		return nil, err
 	}
