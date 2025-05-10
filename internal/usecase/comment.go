@@ -26,6 +26,9 @@ func NewCommentUseCase(repo CommentRepository) *CommentUseCase {
 	return &CommentUseCase{repo: repo}
 }
 func (uc *CommentUseCase) CreateComment(ctx context.Context, comment *entity.Comment) error {
+	if comment == nil {
+		return errors.New("comment cannot be nil")
+	}
 	if comment.Content == "" {
 		return errors.New("comment content cannot be empty")
 	}

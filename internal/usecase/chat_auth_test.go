@@ -1,10 +1,9 @@
+// internal/usecase/chat_test.go
 package usecase_test
 
 import (
 	"context"
 	"errors"
-	"net"
-	"sync"
 	"testing"
 	"time"
 
@@ -51,51 +50,6 @@ func (m *mockAuthUC) GenerateToken(userID int, username string) (string, error) 
 func (m *mockAuthUC) ParseToken(tokenString string) (int64, string, error) {
 	args := m.Called(tokenString)
 	return args.Get(0).(int64), args.String(1), args.Error(2)
-}
-
-// WebSocketConnection интерфейс для WebSocket соединений
-type WebSocketConnection interface {
-	WriteJSON(v interface{}) error
-	ReadJSON(v interface{}) error
-	Close() error
-	WriteMessage(messageType int, data []byte) error
-	ReadMessage() (messageType int, p []byte, err error)
-	SetReadLimit(limit int64)
-	SetReadDeadline(t time.Time) error
-	SetWriteDeadline(t time.Time) error
-	SetPongHandler(h func(string) error)
-	SetPingHandler(h func(string) error)
-	LocalAddr() net.Addr
-	RemoteAddr() net.Addr
-	Subprotocol() string
-	UnderlyingConn() net.Conn
-}
-
-// mockConn реализует WebSocketConnection интерфейс для тестов
-type mockConn struct {
-	writeJSONFunc  func(v interface{}) error
-	readJSONFunc   func(v interface{}) error
-	closeFunc      func() error
-	writeMessageMu sync.Mutex
-	readMessageMu  sync.Mutex
-}
-
-func (m *mockConn) WriteJSON(v interface{}) error {
-	m.writeMessageMu.Lock()
-	defer m.writeMessageMu.Unlock()
-	if m.writeJSONFunc != nil {
-		return m.writeJSONFunc(v)
-	}
-	return nil
-}
-
-func (m *mockConn) ReadJSON(v interface{}) error {
-	m.readMessageMu.Lock()
-	defer m.readMessageMu.Unlock()
-	if m.readJSONFunc != nil {
-		return m.readJSONFunc(v)
-	}
-	return nil
 }
 
 // TestChatUseCase_SendMessage тестирует отправку сообщений
@@ -179,6 +133,8 @@ func TestChatUseCase_GetMessages(t *testing.T) {
 		mockRepo.AssertExpectations(t)
 	})
 }
+
+// TestAuthUseCase тестирует методы аутентификации
 func TestAuthUseCase(t *testing.T) {
 	t.Run("Генерация токена", func(t *testing.T) {
 		authUC := new(mockAuthUC)

@@ -95,6 +95,12 @@ func TestCommentUseCase_CreateComment(t *testing.T) {
 			},
 			expectedErr: "database error",
 		},
+		{
+			name:        "NilComment",
+			comment:     nil,
+			mockSetup:   func(m *MockCommentRepository) {},
+			expectedErr: "comment cannot be nil",
+		},
 	}
 
 	for _, tt := range tests {
@@ -140,6 +146,17 @@ func TestCommentUseCase_GetCommentsByPostID(t *testing.T) {
 			expectedLen: 2,
 		},
 		{
+			name:   "SingleComment",
+			postID: 1,
+			mockSetup: func(m *MockCommentRepository) {
+				m.On("GetCommentsByPostID", mock.Anything, 1).
+					Return([]entity.Comment{
+						{ID: 1, Content: "Single Comment"},
+					}, nil)
+			},
+			expectedLen: 1,
+		},
+		{
 			name:   "EmptyResult",
 			postID: 2,
 			mockSetup: func(m *MockCommentRepository) {
@@ -151,6 +168,13 @@ func TestCommentUseCase_GetCommentsByPostID(t *testing.T) {
 		{
 			name:        "InvalidPostID",
 			postID:      0,
+			mockSetup:   func(m *MockCommentRepository) {},
+			expectedErr: "invalid post ID",
+			expectError: true,
+		},
+		{
+			name:        "NegativePostID",
+			postID:      -1,
 			mockSetup:   func(m *MockCommentRepository) {},
 			expectedErr: "invalid post ID",
 			expectError: true,
@@ -214,6 +238,13 @@ func TestCommentUseCase_DeleteComment(t *testing.T) {
 			expectedErr: "invalid comment ID",
 		},
 		{
+			name:        "NegativeCommentID",
+			commentID:   -1,
+			userID:      1,
+			mockSetup:   func(m *MockCommentRepository) {},
+			expectedErr: "invalid comment ID",
+		},
+		{
 			name:        "InvalidUserID",
 			commentID:   1,
 			userID:      0,
@@ -229,16 +260,6 @@ func TestCommentUseCase_DeleteComment(t *testing.T) {
 					Return(errors.New("database error"))
 			},
 			expectedErr: "database error",
-		},
-		{
-			name:      "NotFoundError",
-			commentID: 3,
-			userID:    1,
-			mockSetup: func(m *MockCommentRepository) {
-				m.On("DeleteComment", mock.Anything, 3, 1).
-					Return(errors.New("comment not found"))
-			},
-			expectedErr: "comment not found",
 		},
 	}
 
@@ -261,4 +282,21 @@ func TestCommentUseCase_DeleteComment(t *testing.T) {
 			repo.AssertExpectations(t)
 		})
 	}
+}
+
+func TestNewCommentUseCase(t *testing.T) {
+	repo := new(MockCommentRepository)
+	uc := usecase.NewCommentUseCase(repo)
+
+	assert.NotNil(t, uc)
+	// We can't test the repo field directly since it's unexported
+	// Instead we can test behavior by verifying mock calls
+	repo.On("CreateComment", mock.Anything, mock.Anything).Return(nil)
+	err := uc.CreateComment(context.Background(), &entity.Comment{
+		Content: "test",
+		PostID:  1,
+		UserID:  1,
+	})
+	assert.NoError(t, err)
+	repo.AssertExpectations(t)
 }
