@@ -14,17 +14,18 @@ import (
 	"github.com/gorilla/websocket"
 	delivery "github.com/perfect1337/forum-service/internal/delivery/http"
 	"github.com/perfect1337/forum-service/internal/entity"
+	"github.com/perfect1337/forum-service/internal/usecase"
 
 	"github.com/stretchr/testify/assert"
 )
 
 type MockChatUseCase struct {
-	HandleWebSocketFunc func(conn *websocket.Conn)
+	HandleWebSocketFunc func(conn usecase.WebSocketConnection)
 	SendMessageFunc     func(ctx context.Context, message *entity.ChatMessage) error
 	GetMessagesFunc     func(ctx context.Context, limit int) ([]entity.ChatMessage, error)
 }
 
-func (m *MockChatUseCase) HandleWebSocket(conn *websocket.Conn) {
+func (m *MockChatUseCase) HandleWebSocket(conn usecase.WebSocketConnection) {
 	if m.HandleWebSocketFunc != nil {
 		m.HandleWebSocketFunc(conn)
 	}
@@ -53,7 +54,9 @@ func (nopCloser) Close() error { return nil }
 func TestChatHandler_HandleWebSocket(t *testing.T) {
 	t.Run("successful connection", func(t *testing.T) {
 		mockUC := &MockChatUseCase{
-			HandleWebSocketFunc: func(conn *websocket.Conn) {},
+			HandleWebSocketFunc: func(conn usecase.WebSocketConnection) {
+				// Тестовая логика
+			},
 		}
 
 		handler := delivery.NewChatHandler(mockUC)
@@ -81,7 +84,6 @@ func TestChatHandler_HandleWebSocket(t *testing.T) {
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
 }
-
 func TestChatHandler_SendMessage(t *testing.T) {
 	tests := []struct {
 		name           string

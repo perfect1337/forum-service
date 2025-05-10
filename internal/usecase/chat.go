@@ -2,14 +2,95 @@ package usecase
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"net"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/websocket"
+	"github.com/perfect1337/forum-service/internal/config"
 	"github.com/perfect1337/forum-service/internal/entity"
+	"github.com/perfect1337/forum-service/internal/repository"
 )
+
+type AuthUseCase struct {
+	repo      repository.Postgres
+	secretKey []byte
+}
+
+func NewAuthUseCase(repo repository.Postgres, cfg *config.Config) *AuthUseCase {
+	return &AuthUseCase{
+		repo:      repo,
+		secretKey: []byte(cfg.Auth.SecretKey),
+	}
+}
+
+// SecretKey returns the secret key used for signing and validating tokens.
+func (uc *AuthUseCase) SecretKey() []byte {
+	return uc.secretKey
+}
+
+// GenerateToken creates a JWT token with the specified claims.
+func (uc *AuthUseCase) GenerateToken(userID int, username string) (string, error) {
+	claims := jwt.MapClaims{
+		"user_id":  userID,
+		"username": username,
+		"exp":      time.Now().Add(time.Hour * 72).Unix(), // Token expires in 72 hours
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(uc.SecretKey())
+}
+
+type WebSocketConnection interface {
+	WriteJSON(v interface{}) error
+	ReadJSON(v interface{}) error
+	Close() error
+	WriteMessage(messageType int, data []byte) error
+	ReadMessage() (messageType int, p []byte, err error)
+	SetReadLimit(limit int64)
+	SetReadDeadline(t time.Time) error
+	SetWriteDeadline(t time.Time) error
+	SetPongHandler(h func(string) error)
+	SetPingHandler(h func(string) error)
+	LocalAddr() net.Addr
+	RemoteAddr() net.Addr
+	Subprotocol() string
+	UnderlyingConn() net.Conn
+}
+
+// ParseToken parses and validates a JWT token, extracting the user ID and username from the claims.
+func (uc *AuthUseCase) ParseToken(tokenString string) (int64, string, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return uc.SecretKey(), nil
+	})
+
+	if err != nil {
+		return 0, "", err
+	}
+
+	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		userID, ok := claims["user_id"].(float64)
+		if !ok {
+			return 0, "", fmt.Errorf("invalid user_id in token")
+		}
+
+		username, ok := claims["username"].(string)
+		if !ok {
+			return 0, "", fmt.Errorf("invalid username in token")
+		}
+
+		return int64(userID), username, nil
+	}
+
+	return 0, "", fmt.Errorf("invalid token")
+}
 
 type ChatRepository interface {
 	SaveChatMessage(ctx context.Context, msg *entity.ChatMessage) error
@@ -42,10 +123,10 @@ type WebSocketHub struct {
 type ChatUseCaseInterface interface {
 	SendMessage(ctx context.Context, message *entity.ChatMessage) error
 	GetMessages(ctx context.Context, limit int) ([]entity.ChatMessage, error)
-	HandleWebSocket(conn *websocket.Conn)
+	HandleWebSocket(conn WebSocketConnection) // Используем интерфейс вместо *websocket.Conn
 }
 type WebSocketClient struct {
-	conn *websocket.Conn
+	conn WebSocketConnection
 	send chan entity.ChatMessage
 }
 
@@ -104,7 +185,7 @@ func (h *WebSocketHub) run() {
 	}
 }
 
-func (uc *ChatUseCase) HandleWebSocket(conn *websocket.Conn) {
+func (uc *ChatUseCase) HandleWebSocket(conn WebSocketConnection) {
 	uc.hub.mutex.Lock()
 	if uc.hub.connectionCount >= uc.hub.maxConnections {
 		conn.WriteMessage(websocket.CloseMessage, []byte("too many connections"))

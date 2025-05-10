@@ -41,6 +41,7 @@ func main() {
 	authUC := usecase.NewAuthUseCase(*repo, cfg)
 	chatUC := usecase.NewChatUseCase(repo, authUC)
 	userUC := usecase.NewUserUseCase(repo)
+
 	// Initialize gRPC connection to auth-service
 	authAddr := os.Getenv("AUTH_SERVICE_GRPC_ADDR")
 	if authAddr == "" {

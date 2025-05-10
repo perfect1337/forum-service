@@ -1,3 +1,4 @@
+// internal/delivery/http/chat_handler.go
 package delivery
 
 import (
@@ -24,15 +25,17 @@ type ChatHandler struct {
 func NewChatHandler(chatUC usecase.ChatUseCaseInterface) *ChatHandler {
 	return &ChatHandler{chatUC: chatUC}
 }
+
 func (h *ChatHandler) HandleWebSocket(c *gin.Context) {
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to upgrade connection"})
 		return
 	}
 	h.chatUC.HandleWebSocket(conn)
 }
+
 func (h *ChatHandler) SendMessage(c *gin.Context) {
-	// Get user info from context with proper type assertions
 	userID, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{
@@ -51,7 +54,6 @@ func (h *ChatHandler) SendMessage(c *gin.Context) {
 		return
 	}
 
-	// Parse request
 	var request struct {
 		Text string `json:"text" binding:"required"`
 	}
@@ -64,14 +66,12 @@ func (h *ChatHandler) SendMessage(c *gin.Context) {
 		return
 	}
 
-	// Create message with proper type assertions
 	message := &entity.ChatMessage{
 		UserID: userID.(int),
 		Author: username.(string),
 		Text:   request.Text,
 	}
 
-	// Save to database
 	if err := h.chatUC.SendMessage(c.Request.Context(), message); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "Failed to save message",
@@ -90,15 +90,7 @@ func (h *ChatHandler) SendMessage(c *gin.Context) {
 	})
 }
 
-// internal/delivery/chat.go
 func (h *ChatHandler) GetMessages(c *gin.Context) {
-	// Добавим параметр для очистки старых сообщений
-	_, err := h.chatUC.GetMessages(c.Request.Context(), 100)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
 	messages, err := h.chatUC.GetMessages(c.Request.Context(), 100)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
