@@ -1,0 +1,429 @@
+basePath: /
+definitions:
+  docs.Error:
+    properties:
+      code:
+        description: The error code
+        type: string
+      details:
+        description: Additional error details
+        type: string
+      error:
+        description: |-
+          The error message
+          Required: true
+        type: string
+    type: object
+  github_com_perfect1337_forum-service_internal_entity.ChatMessage:
+    properties:
+      author:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      text:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  github_com_perfect1337_forum-service_internal_entity.Comment:
+    properties:
+      author:
+        type: string
+      content:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      post_id:
+        description: Должно быть int
+        type: integer
+      user_id:
+        type: integer
+    type: object
+  github_com_perfect1337_forum-service_internal_entity.Post:
+    properties:
+      author:
+        description: db:"-" означает, что это поле не маппится напрямую
+        type: string
+      comments:
+        items:
+          $ref: '#/definitions/github_com_perfect1337_forum-service_internal_entity.Comment'
+        type: array
+      content:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      title:
+        type: string
+      user_id:
+        type: integer
+    type: object
+host: localhost:8081
+info:
+  contact: {}
+  description: API for managing forum posts, comments, and chat functionality
+  title: Forum Service API
+  version: "1.0"
+paths:
+  /auth/validate:
+    get:
+      consumes:
+      - application/json
+      description: Validate JWT token
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/docs.Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/docs.Error'
+      security:
+      - BearerAuth: []
+      summary: Validate token
+      tags:
+      - auth
+  /chat/messages:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve chat messages
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/github_com_perfect1337_forum-service_internal_entity.ChatMessage'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/docs.Error'
+      summary: Get chat messages
+      tags:
+      - chat
+    post:
+      consumes:
+      - application/json
+      description: Send a new chat message
+      parameters:
+      - description: Message object
+        in: body
+        name: message
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_perfect1337_forum-service_internal_entity.ChatMessage'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_perfect1337_forum-service_internal_entity.ChatMessage'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/docs.Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/docs.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/docs.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/docs.Error'
+      security:
+      - BearerAuth: []
+      summary: Send chat message
+      tags:
+      - chat
+  /chat/ws:
+    get:
+      consumes:
+      - application/json
+      description: Establish WebSocket connection for real-time chat
+      produces:
+      - application/json
+      responses:
+        "101":
+          description: Switching protocols to WebSocket
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/docs.Error'
+      summary: WebSocket connection
+      tags:
+      - chat
+  /posts:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a list of all forum posts
+      parameters:
+      - description: Include comments in response
+        in: query
+        name: includeComments
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/github_com_perfect1337_forum-service_internal_entity.Post'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/docs.Error'
+      summary: Get all posts
+      tags:
+      - posts
+    post:
+      consumes:
+      - application/json
+      description: Create a new forum post
+      parameters:
+      - description: Post object
+        in: body
+        name: post
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_perfect1337_forum-service_internal_entity.Post'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_perfect1337_forum-service_internal_entity.Post'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/docs.Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/docs.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/docs.Error'
+      security:
+      - BearerAuth: []
+      summary: Create a new post
+      tags:
+      - posts
+  /posts/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a specific post
+      parameters:
+      - description: Post ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/docs.Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/docs.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/docs.Error'
+      security:
+      - BearerAuth: []
+      summary: Delete post
+      tags:
+      - posts
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a specific post by its ID
+      parameters:
+      - description: Post ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_perfect1337_forum-service_internal_entity.Post'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/docs.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/docs.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/docs.Error'
+      summary: Get post by ID
+      tags:
+      - posts
+  /posts/{id}/comments:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve all comments for a specific post
+      parameters:
+      - description: Post ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/github_com_perfect1337_forum-service_internal_entity.Comment'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/docs.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/docs.Error'
+      summary: Get comments for a post
+      tags:
+      - comments
+    post:
+      consumes:
+      - application/json
+      description: Create a new comment for a specific post
+      parameters:
+      - description: Post ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Comment object
+        in: body
+        name: comment
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_perfect1337_forum-service_internal_entity.Comment'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_perfect1337_forum-service_internal_entity.Comment'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/docs.Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/docs.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/docs.Error'
+      security:
+      - BearerAuth: []
+      summary: Create a comment
+      tags:
+      - comments
+  /posts/{id}/comments/{comment_id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a specific comment
+      parameters:
+      - description: Post ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Comment ID
+        in: path
+        name: comment_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/docs.Error'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/docs.Error'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/docs.Error'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/docs.Error'
+      security:
+      - BearerAuth: []
+      summary: Delete comment
+      tags:
+      - comments
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

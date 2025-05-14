@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package user;
+
+option go_package = "github.com/perfect1337/auth-service/internal/proto/user";
+
+service UserService {
+  rpc GetUsername (UserRequest) returns (UserResponse);
+}
+
+message UserRequest {
+  int32 user_id = 1;
+}
+
+message UserResponse {
+  string username = 1;
+}
