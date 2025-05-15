@@ -14,12 +14,13 @@ import (
 	"github.com/perfect1337/forum-service/internal/config"
 	grpcDelivery "github.com/perfect1337/forum-service/internal/delivery/grpcserver"
 	delivery "github.com/perfect1337/forum-service/internal/delivery/http"
-	"github.com/perfect1337/forum-service/internal/logger"
 	forumPostProto "github.com/perfect1337/forum-service/internal/proto/post"
 	"github.com/perfect1337/forum-service/internal/repository"
 	"github.com/perfect1337/forum-service/internal/usecase"
+	"github.com/perfect1337/logger"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )

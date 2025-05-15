@@ -12,6 +12,7 @@ require (
 )
 
 require (
+	github.com/perfect1337/logger v0.0.0-20250515181521-d6144849f7f5 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 )
