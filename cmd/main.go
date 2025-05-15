@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"net"
 	"os"
 	"os/signal"
@@ -15,6 +14,7 @@ import (
 	"github.com/perfect1337/forum-service/internal/config"
 	grpcDelivery "github.com/perfect1337/forum-service/internal/delivery/grpcserver"
 	delivery "github.com/perfect1337/forum-service/internal/delivery/http"
+	"github.com/perfect1337/forum-service/internal/logger"
 	forumPostProto "github.com/perfect1337/forum-service/internal/proto/post"
 	"github.com/perfect1337/forum-service/internal/repository"
 	"github.com/perfect1337/forum-service/internal/usecase"
@@ -34,12 +34,32 @@ import (
 // @name Authorization
 // @description Enter the token with the `Bearer ` prefix, e.g. "Bearer abcde12345"
 func main() {
+	cfg := config.Load()
 	// Create context with graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Load configuration
-	cfg := config.Load()
+	// Initialize logger
+	log, err := logger.New(cfg.Logger)
+	if err != nil {
+		panic("failed to initialize logger: " + err.Error())
+	}
+	defer log.Sync()
+
+	log.Info("Starting auth service...")
+	log.Infow("Loaded configuration",
+		"server_port", cfg.Server.Port,
+		"grpc_port", cfg.GRPC.Port,
+		"log_level", cfg.Logger.LogLevel,
+	)
+
+	// Set Gin mode and disable console color
+	if cfg.Logger.Development {
+		gin.SetMode(gin.DebugMode)
+	} else {
+		gin.SetMode(gin.ReleaseMode)
+	}
+	gin.DisableConsoleColor()
 
 	// Initialize repository
 	repo, err := repository.NewPostgres(cfg)
@@ -85,14 +105,14 @@ func main() {
 		if err != nil {
 			log.Fatalf("failed to listen: %v", err)
 		}
-		log.Printf("gRPC server listening on :%s", cfg.Postgres.GRPCPort)
+
 		if err := grpcSrv.Serve(lis); err != nil {
 			log.Fatalf("failed to serve gRPC: %v", err)
 		}
 	}()
 
 	// Initialize HTTP server
-	router := gin.Default()
+	router := gin.New()
 	router.Use(cors.New(cors.Config{
 		AllowOrigins:     []string{"http://localhost:3000"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
@@ -101,7 +121,8 @@ func main() {
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
-
+	router.Use(logger.GinLogger(log))
+	router.Use(gin.Recovery())
 	// Add Swagger route
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
@@ -164,7 +185,6 @@ func main() {
 
 	// Start HTTP server in goroutine
 	go func() {
-		log.Printf("HTTP server starting on :%s", cfg.Server.Port)
 		if err := router.Run(":" + cfg.Server.Port); err != nil {
 			log.Fatalf("failed to start HTTP server: %v", err)
 		}
@@ -174,7 +194,6 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	log.Println("Shutting down server...")
 
 	// Gracefully stop gRPC server
 	grpcSrv.GracefulStop()
@@ -182,5 +201,4 @@ func main() {
 	// Cancel context
 	cancel()
 
-	log.Println("Server exited properly")
 }
