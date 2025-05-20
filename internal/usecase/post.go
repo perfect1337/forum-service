@@ -14,6 +14,7 @@ type PostUseCase interface {
 	GetPostByID(ctx context.Context, id int) (*entity.Post, error)
 	GetAllPosts(ctx context.Context) ([]*entity.Post, error)
 	DeletePost(ctx context.Context, postID, userID int) error
+	UpdatePost(ctx context.Context, postID int, userID int, title, content string) error
 }
 
 type PostRepository interface {
@@ -21,6 +22,7 @@ type PostRepository interface {
 	GetPostByID(ctx context.Context, id int) (*entity.Post, error)
 	GetAllPosts(ctx context.Context) ([]*entity.Post, error)
 	DeletePost(ctx context.Context, id int) error
+	UpdatePost(ctx context.Context, postID int, title, content string) error
 }
 
 type UserRepository interface {
@@ -79,6 +81,21 @@ func (s *PostService) GetPostByID(ctx context.Context, id int) (*entity.Post, er
 
 func (s *PostService) GetAllPosts(ctx context.Context) ([]*entity.Post, error) {
 	return s.postRepo.GetAllPosts(ctx)
+}
+
+func (s *PostService) UpdatePost(ctx context.Context, postID int, userID int, title, content string) error {
+	post, err := s.postRepo.GetPostByID(ctx, postID)
+	if err != nil {
+		return err
+	}
+	user, err := s.userRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if post.UserID != userID && user.Role != "admin" {
+		return errors.New("unauthorized: you can only update your own posts")
+	}
+	return s.postRepo.UpdatePost(ctx, postID, title, content)
 }
 
 func NewPostUseCase(postRepo PostRepository, userRepo UserRepository) PostUseCase {

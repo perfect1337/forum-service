@@ -17,7 +17,7 @@ import (
 	forumPostProto "github.com/perfect1337/forum-service/internal/proto/post"
 	"github.com/perfect1337/forum-service/internal/repository"
 	"github.com/perfect1337/forum-service/internal/usecase"
-	"github.com/perfect1337/logger"
+	logg "github.com/perfect1337/logger"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 
@@ -41,7 +41,7 @@ func main() {
 	defer cancel()
 
 	// Initialize logger
-	log, err := logger.New(cfg.Logger)
+	log, err := logg.New(cfg.Logger)
 	if err != nil {
 		panic("failed to initialize logger: " + err.Error())
 	}
@@ -122,7 +122,7 @@ func main() {
 		AllowCredentials: true,
 		MaxAge:           12 * time.Hour,
 	}))
-	router.Use(logger.GinLogger(log))
+	router.Use(logg.GinLogger(log))
 	router.Use(gin.Recovery())
 	// Add Swagger route
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
@@ -167,6 +167,7 @@ func main() {
 		{
 			protected.POST("", postHandler.CreatePost)
 			protected.DELETE("/:id", postHandler.DeletePost)
+			protected.PUT("/:id", postHandler.UpdatePost)
 		}
 
 		// Comments routes

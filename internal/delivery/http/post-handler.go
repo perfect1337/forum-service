@@ -208,3 +208,56 @@ func (h *PostHandler) DeletePost(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "post deleted successfully"})
 }
+
+// UpdatePost godoc
+// @Summary Update post
+// @Description Update a specific post. Only the owner or admin can update.
+// @Tags posts
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "Post ID"
+// @Param post body entity.Post true "Post object"
+// @Success 200 {object} entity.Post
+// @Failure 400 {object} docs.Error
+// @Failure 401 {object} docs.Error
+// @Failure 403 {object} docs.Error
+// @Failure 404 {object} docs.Error
+// @Failure 500 {object} docs.Error
+// @Router /posts/{id} [put]
+func (h *PostHandler) UpdatePost(c *gin.Context) {
+	postID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid post ID"})
+		return
+	}
+
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+		return
+	}
+
+	var req entity.Post
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	err = h.postUC.UpdatePost(c.Request.Context(), postID, userID.(int), req.Title, req.Content)
+	if err != nil {
+		if err.Error() == "unauthorized: you can only update your own posts" {
+			c.JSON(http.StatusForbidden, gin.H{"error": err.Error()})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	updatedPost, err := h.postUC.GetPostByID(c.Request.Context(), postID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, updatedPost)
+}

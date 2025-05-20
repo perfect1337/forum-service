@@ -15,6 +15,7 @@ type PostRepository interface {
 	GetAllPosts(ctx context.Context) ([]*entity.Post, error)
 	GetPostByID(ctx context.Context, id int) (*entity.Post, error)
 	DeletePost(ctx context.Context, id int) error
+	UpdatePost(ctx context.Context, postID int, title, content string) error
 }
 
 type Postgres struct {
@@ -113,5 +114,11 @@ func (p *Postgres) GetPostByID(ctx context.Context, id int) (*entity.Post, error
 func (p *Postgres) DeletePost(ctx context.Context, id int) error {
 	query := `DELETE FROM posts WHERE id = $1`
 	_, err := p.db.ExecContext(ctx, query, id)
+	return err
+}
+
+func (p *Postgres) UpdatePost(ctx context.Context, postID int, title, content string) error {
+	query := `UPDATE posts SET title = $1, content = $2 WHERE id = $3`
+	_, err := p.db.ExecContext(ctx, query, title, content, postID)
 	return err
 }
