@@ -50,6 +50,10 @@ type MockUserClient struct {
 	mock.Mock
 }
 
+func (m *MockPostUsecase) UpdatePost(ctx context.Context, postID int, userID int, title, content string) error {
+	args := m.Called(ctx, postID, userID, title, content)
+	return args.Error(0)
+}
 func (m *MockUserClient) GetUsername(ctx context.Context, in *userProto.UserRequest, opts ...grpc.CallOption) (*userProto.UserResponse, error) {
 	args := m.Called(ctx, in)
 	if args.Get(0) == nil {

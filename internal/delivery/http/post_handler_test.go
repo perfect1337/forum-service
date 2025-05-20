@@ -39,6 +39,10 @@ func (m *MockPostUseCase) DeletePost(ctx context.Context, postID, userID int) er
 	args := m.Called(ctx, postID, userID)
 	return args.Error(0)
 }
+func (m *MockPostUseCase) UpdatePost(ctx context.Context, postID, userID int, title, content string) error {
+	args := m.Called(ctx, postID, userID, title, content)
+	return args.Error(0)
+}
 
 // MockUserUseCase
 type MockUserUseCase struct {

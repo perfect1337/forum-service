@@ -20,6 +20,10 @@ type MockPostRepository struct {
 	mock.Mock
 }
 
+func (m *MockPostRepository) UpdatePost(ctx context.Context, postID int, title, content string) error {
+	args := m.Called(ctx, postID, title, content)
+	return args.Error(0)
+}
 func (m *MockPostRepository) CreatePost(ctx context.Context, post *entity.Post) error {
 	args := m.Called(ctx, post)
 	return args.Error(0)
@@ -52,6 +56,12 @@ func (m *MockUserRepository) GetUserByID(ctx context.Context, id int) (*entity.U
 	}
 	return args.Get(0).(*entity.User), args.Error(1)
 }
+
+func (m *MockPostUseCase) UpdatePost(ctx context.Context, postID, userID int, title, content string) error {
+	args := m.Called(ctx, postID, userID, title, content)
+	return args.Error(0)
+}
+
 func TestPostUseCase_CreatePost(t *testing.T) {
 	tests := []struct {
 		name        string
